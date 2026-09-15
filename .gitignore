@@ -1,0 +1,6 @@
+node_modules/
+outputs/
+.agents/
+.sites-runtime/
+*.log
+
