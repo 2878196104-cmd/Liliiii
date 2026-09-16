@@ -1,6 +1,7 @@
 node_modules/
+.venv-redbook/
+.redbook-cli/
 outputs/
 .agents/
 .sites-runtime/
 *.log
-
