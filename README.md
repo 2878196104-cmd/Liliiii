@@ -23,9 +23,18 @@
 - 策略卡
 - 信息源库
 
-## 启用自动化
+## 文档
 
-按照 [`docs/AUTOMATION_SETUP.md`](docs/AUTOMATION_SETUP.md) 创建数据库、配置公开前端连接信息和 GitHub Secrets。数据库未接通之前不会影响现有 GitHub Pages。
+- [自动化配置说明](docs/AUTOMATION_SETUP.md)
+- [系统交接文档](docs/HANDOFF.md)
+
+## 当前运行状态
+
+- 已配置 20 个公开信息源
+- GitHub Actions 每 6 小时自动采集
+- 原始内容写入 Supabase `raw_documents`
+- 公开看板只读取审核通过的事件
+- 当前下一优先级：审核后台“采集收件箱”
 
 ## 数据原则
 
