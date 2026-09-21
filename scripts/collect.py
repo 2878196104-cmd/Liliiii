@@ -21,7 +21,8 @@ from pathlib import Path
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_KEY = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 SOURCE_FILE = Path(os.environ.get("SOURCE_CONFIG", "config/sources.json"))
-USER_AGENT = "Mozilla/5.0 (compatible; MonthlyKnowCollector/2.0; +https://2878196104-cmd.github.io/Liliiii/)"
+BROWSER_USER_AGENT = "Mozilla/5.0 (compatible; MonthlyKnowCollector/2.0; +https://2878196104-cmd.github.io/Liliiii/)"
+API_USER_AGENT = "MonthlyKnowCollector/2.0"
 SOURCE_COLUMNS = {
     "name", "base_url", "platform", "feed_url", "trust_level",
     "enabled", "collection_interval_minutes"
@@ -32,7 +33,7 @@ def fetch_bytes(url: str) -> bytes:
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": USER_AGENT,
+            "User-Agent": BROWSER_USER_AGENT,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
     )
@@ -41,7 +42,7 @@ def fetch_bytes(url: str) -> bytes:
 
 
 def request(url: str, *, method: str = "GET", body=None, headers=None):
-    merged = {"User-Agent": USER_AGENT, **(headers or {})}
+    merged = {"User-Agent": API_USER_AGENT, **(headers or {})}
     data = None if body is None else json.dumps(body).encode("utf-8")
     req = urllib.request.Request(url, data=data, method=method, headers=merged)
     with urllib.request.urlopen(req, timeout=12) as response:
