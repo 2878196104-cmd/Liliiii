@@ -4,6 +4,13 @@ on:
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "config/sources.json"
+      - "scripts/collect.py"
+      - ".github/workflows/collect.yml"
 
 permissions:
   contents: read
@@ -21,7 +28,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Collect configured feeds
+      - name: Collect configured sources
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}
