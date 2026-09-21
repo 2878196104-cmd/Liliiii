@@ -10,7 +10,6 @@ import os
 import re
 import sys
 import urllib.error
-import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
@@ -18,7 +17,7 @@ from pathlib import Path
 
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+SERVICE_KEY = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 SOURCE_FILE = Path(os.environ.get("SOURCE_CONFIG", "config/sources.json"))
 
 
@@ -34,7 +33,6 @@ def request(url: str, *, method: str = "GET", body=None, headers=None):
 def supabase(path: str, *, method="GET", body=None, prefer=None):
     headers = {
         "apikey": SERVICE_KEY,
-        "Authorization": f"Bearer {SERVICE_KEY}",
         "Content-Type": "application/json",
     }
     if prefer:
@@ -83,9 +81,9 @@ def parse_feed(payload: bytes):
 
 def main():
     if not SUPABASE_URL or not SERVICE_KEY:
-        raise SystemExit("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required")
+        raise SystemExit("SUPABASE_URL and SUPABASE_SECRET_KEY are required")
     if not SOURCE_FILE.exists():
-        raise SystemExit(f"Missing {SOURCE_FILE}; copy config/sources.example.json to config/sources.json")
+        raise SystemExit(f"Missing {SOURCE_FILE}")
 
     sources = [item for item in json.loads(SOURCE_FILE.read_text("utf-8")) if item.get("enabled")]
     inserted = skipped = failed = 0
@@ -128,7 +126,7 @@ def main():
                         skipped += 1
                     else:
                         raise
-        except Exception as error:  # continue other sources and fail the job at the end
+        except Exception as error:
             failed += 1
             print(f"collector error [{source.get('name')}]: {error}", file=sys.stderr)
 
