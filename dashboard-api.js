@@ -18,7 +18,6 @@
   function headers() {
     return {
       apikey: config.supabaseAnonKey,
-      Authorization: `Bearer ${config.supabaseAnonKey}`,
       Accept: "application/json"
     };
   }
