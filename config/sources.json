@@ -162,5 +162,307 @@
       "发布"
     ],
     "max_items": 8
+  },
+  {
+    "name": "广告门 ADQUAN",
+    "base_url": "https://www.adquan.com/",
+    "platform": "营销媒体",
+    "trust_level": 2,
+    "entry_url": "https://www.adquan.com/",
+    "include_patterns": [
+      "/(article|creative|campaign|case)/"
+    ],
+    "keywords": [
+      "品牌",
+      "营销",
+      "消费",
+      "电商",
+      "家居",
+      "新品"
+    ],
+    "max_items": 6,
+    "feed_url": null,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html"
+  },
+  {
+    "name": "梅花网",
+    "base_url": "https://www.meihua.info/",
+    "platform": "营销媒体",
+    "trust_level": 2,
+    "entry_url": "https://www.meihua.info/",
+    "include_patterns": [
+      "/(article|case|works)/"
+    ],
+    "keywords": [
+      "品牌",
+      "营销",
+      "消费",
+      "零售",
+      "家居",
+      "新品"
+    ],
+    "max_items": 6,
+    "feed_url": null,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html"
+  },
+  {
+    "name": "36氪",
+    "base_url": "https://36kr.com/",
+    "platform": "商业科技媒体",
+    "trust_level": 2,
+    "entry_url": "https://36kr.com/",
+    "include_patterns": [
+      "/p/"
+    ],
+    "keywords": [
+      "品牌",
+      "消费",
+      "家居",
+      "零售",
+      "电商",
+      "AI",
+      "营销"
+    ],
+    "max_items": 6,
+    "feed_url": null,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html"
+  },
+  {
+    "name": "乐居财经",
+    "base_url": "https://www.lejucaijing.com/",
+    "platform": "家居行业媒体",
+    "trust_level": 2,
+    "entry_url": "https://www.lejucaijing.com/",
+    "include_patterns": [
+      "/news-"
+    ],
+    "keywords": [
+      "家居",
+      "家具",
+      "品牌",
+      "定制",
+      "门店",
+      "消费",
+      "展会"
+    ],
+    "max_items": 8,
+    "feed_url": null,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html"
+  },
+  {
+    "name": "品牌星球 BrandStar",
+    "base_url": "https://www.brandstar.com.cn/",
+    "platform": "品牌媒体",
+    "trust_level": 2,
+    "entry_url": "https://www.brandstar.com.cn/",
+    "include_patterns": [
+      "/(article|brand|in-depth|news)/"
+    ],
+    "keywords": [
+      "品牌",
+      "营销",
+      "消费",
+      "新品",
+      "联名",
+      "增长"
+    ],
+    "max_items": 6,
+    "feed_url": null,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html"
+  },
+  {
+    "name": "TOPMarketing",
+    "base_url": "https://www.itopmarketing.com/",
+    "platform": "营销媒体",
+    "trust_level": 2,
+    "entry_url": "https://www.itopmarketing.com/",
+    "include_patterns": [
+      "/(article|news|case|details)/"
+    ],
+    "keywords": [
+      "品牌",
+      "营销",
+      "消费",
+      "电商",
+      "零售",
+      "新品"
+    ],
+    "max_items": 6,
+    "feed_url": null,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html"
+  },
+  {
+    "name": "红星美凯龙资讯",
+    "base_url": "https://www.chinaredstar.com/",
+    "platform": "家居行业媒体",
+    "trust_level": 2,
+    "entry_url": "https://www.chinaredstar.com/news/",
+    "include_patterns": [
+      "/news/article-"
+    ],
+    "keywords": [
+      "家居",
+      "家具",
+      "品牌",
+      "商场",
+      "门店",
+      "消费",
+      "设计"
+    ],
+    "max_items": 8,
+    "feed_url": null,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html"
+  },
+  {
+    "name": "网易家居",
+    "base_url": "https://home.163.com/",
+    "platform": "家居行业媒体",
+    "trust_level": 2,
+    "entry_url": "https://home.163.com/",
+    "include_patterns": [
+      "/\\d{2}/\\d{4}/"
+    ],
+    "keywords": [
+      "家居",
+      "家具",
+      "品牌",
+      "设计",
+      "新品",
+      "门店"
+    ],
+    "max_items": 8,
+    "feed_url": null,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html"
+  },
+  {
+    "name": "搜狐焦点家居",
+    "base_url": "https://home.focus.cn/",
+    "platform": "家居行业媒体",
+    "trust_level": 2,
+    "entry_url": "https://home.focus.cn/",
+    "include_patterns": [
+      "/(zixun|article|news)/"
+    ],
+    "keywords": [
+      "家居",
+      "家具",
+      "品牌",
+      "定制",
+      "设计",
+      "新品"
+    ],
+    "max_items": 8,
+    "feed_url": null,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html"
+  },
+  {
+    "name": "九正家居",
+    "base_url": "https://www.jia360.com/",
+    "platform": "家居行业媒体",
+    "trust_level": 2,
+    "entry_url": "https://www.jia360.com/",
+    "include_patterns": [
+      "/(new|news|article|brand)/"
+    ],
+    "keywords": [
+      "家居",
+      "家具",
+      "品牌",
+      "定制",
+      "门店",
+      "新品"
+    ],
+    "max_items": 8,
+    "feed_url": null,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html"
+  },
+  {
+    "name": "CIFF 上海家博会",
+    "base_url": "https://www.ciff-sh.com/",
+    "platform": "行业展会",
+    "trust_level": 3,
+    "entry_url": "https://www.ciff-sh.com/2026/",
+    "include_patterns": [
+      "/(news|article|detail|information)/"
+    ],
+    "keywords": [
+      "家居",
+      "家具",
+      "设计",
+      "品牌",
+      "材料",
+      "展会"
+    ],
+    "max_items": 8,
+    "feed_url": null,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html"
+  },
+  {
+    "name": "CIFF 广州家博会",
+    "base_url": "https://www.ciff-gz.com/",
+    "platform": "行业展会",
+    "trust_level": 3,
+    "entry_url": "https://www.ciff-gz.com/",
+    "include_patterns": [
+      "/(news|article|detail|information)/"
+    ],
+    "keywords": [
+      "家居",
+      "家具",
+      "设计",
+      "品牌",
+      "材料",
+      "展会"
+    ],
+    "max_items": 8,
+    "feed_url": null,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html"
+  },
+  {
+    "name": "中国建博会 CBD",
+    "base_url": "https://www.cbd-china.com/",
+    "platform": "行业展会",
+    "trust_level": 3,
+    "entry_url": "https://www.cbd-china.com/",
+    "include_patterns": [
+      "/(news|article|detail|information)/"
+    ],
+    "keywords": [
+      "家居",
+      "建材",
+      "定制",
+      "设计",
+      "品牌",
+      "展会"
+    ],
+    "max_items": 8,
+    "feed_url": null,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html"
   }
 ]
