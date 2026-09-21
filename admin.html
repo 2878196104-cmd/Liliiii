@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Monthly Know · 审核台</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <main class="admin-shell">
+    <header>
+      <div><small>MONTHLY KNOW</small><h1>情报审核台</h1><p>审核采集和结构化后的事件。只有“已批准”内容会进入公开看板。</p></div>
+      <a href="skill-output-dashboard.html">返回看板 ↗</a>
+    </header>
+
+    <section class="login-panel" id="loginPanel">
+      <h2>管理员登录</h2>
+      <form id="loginForm">
+        <label>邮箱<input id="email" type="email" autocomplete="username" required></label>
+        <label>密码<input id="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit">登录</button>
+      </form>
+      <p class="status" id="loginStatus"></p>
+    </section>
+
+    <section class="workspace" id="workspace" hidden>
+      <div class="workspace-head"><div><h2>待审核事件</h2><p id="queueSummary">正在读取……</p></div><button id="logoutButton" class="secondary">退出</button></div>
+      <div class="filters">
+        <button data-status="pending" class="active">待审核</button>
+        <button data-status="needs_evidence">证据不足</button>
+        <button data-status="approved">已批准</button>
+        <button data-status="rejected">已驳回</button>
+      </div>
+      <div id="eventQueue" class="event-queue"></div>
+    </section>
+  </main>
+  <script src="runtime-config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

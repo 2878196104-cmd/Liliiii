@@ -87,3 +87,28 @@ body{background:linear-gradient(145deg,#cbd5df 0%,#e5e9e7 52%,#d7dee8 100%)}
 /* Conclusion page is the actual exported slide preview, not a separate report. */
 .output-ppt-preview{margin:0;background:#f8faf6;border:1px solid #dce6df;border-radius:18px;overflow:hidden;box-shadow:0 14px 35px #466b6710}.output-preview-open{display:block;width:100%;padding:0;border:0;background:transparent;cursor:zoom-in}.output-preview-open img{display:block;width:100%;height:auto;aspect-ratio:16/9}.output-ppt-preview figcaption{padding:10px 18px;font-size:12px;color:#748984;border-top:1px solid #e0e9e3}.output-preview-label{font-size:12px;color:#6a827c}.output-download-bar{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:20px 0;border-top:1px solid #dbe5df}.output-download-bar>span{font-size:13px;color:#6c807a}.output-preview-dialog{width:96vw;max-width:1920px;max-height:94vh;padding:48px 12px 12px;border:0;border-radius:20px;background:#f8faf6;overflow:auto}.output-preview-dialog::backdrop{background:#263d4399;backdrop-filter:blur(6px)}.output-preview-dialog img{display:block;width:100%;height:auto}.output-preview-close{position:absolute;right:16px;top:10px;border:1px solid #cddcd6;border-radius:22px;padding:8px 16px;background:#eef5f1;color:#365650;cursor:pointer}.output-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:pre-line;border:0}@media(max-width:650px){.output-download-bar{align-items:flex-start;flex-direction:column}.output-preview-dialog img{width:1200px;max-width:none}.output-preview-label{display:none}}
 .strategy-b-slide{padding:32px;background:linear-gradient(145deg,#fffefa,#f0f8f6);border:1px solid #dce6df;border-radius:28px}.strategy-b-slide h1{font-size:clamp(24px,2.5vw,34px);line-height:1.5;margin:0 0 12px}.strategy-b-lead{font-size:14px;line-height:1.85;color:#617971;max-width:1100px}.strategy-b-layout{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.6fr);gap:32px;margin:24px 0}.strategy-b-layout h3{font-size:17px;margin:0 0 18px}.strategy-b-judgments{padding:24px;border-radius:22px;background:linear-gradient(140deg,#e5f1ef,#f0f4e6)}.strategy-b-judgments section+section{margin-top:24px}.strategy-b-judgments small{font-size:11px;color:#71968b}.strategy-b-judgments h4{font-size:17px;margin:5px 0 8px}.strategy-b-layout p{font-size:14px;line-height:1.85;margin:8px 0}.strategy-b-brands article{padding:14px 0;border-bottom:1px solid #dce6df}.strategy-b-brands article:first-of-type{padding-top:0}.strategy-b-brands article:last-child{border:0}.strategy-b-brand{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}.strategy-b-brand strong{font-size:17px;color:#2f554b}.strategy-b-brand span{font-size:15px;font-weight:600;color:#4c7065}.strategy-b-brands small{font-size:12px;color:#7a8f86;line-height:1.7;display:block}.strategy-b-outlook{border-top:1px solid #d5e3da;padding-top:20px}.strategy-b-outlook strong{font-size:15px;color:#4a7866}.strategy-b-outlook p{font-size:15px;line-height:1.8;margin:10px 0}.strategy-b-scope{font-size:11px!important;line-height:1.6;color:#819087;margin-top:20px}.strategy-ppt-preview{padding:10px 14px;border:0;background:transparent;color:#557c71;font:13px inherit;cursor:pointer}@media(max-width:850px){.strategy-b-layout{grid-template-columns:1fr;gap:24px}.strategy-b-slide{padding:22px}.strategy-b-brand{gap:8px}.output-download-bar>div{display:flex;gap:8px;flex-wrap:wrap}}
+.data-connection-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(63, 72, 66, 0.14);
+  border-radius: 999px;
+  color: #6f716b;
+  background: rgba(255, 253, 248, 0.72);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.data-connection-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #9a9a92;
+}
+
+.data-connection-badge[data-tone="live"]::before { background: #3f7254; }
+.data-connection-badge[data-tone="loading"]::before { background: #a36c3d; }
+.data-connection-badge[data-tone="error"]::before { background: #9f5e54; }

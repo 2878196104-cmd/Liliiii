@@ -13,3 +13,7 @@ local-internal-sources.js
 内部品质季提案_工作流与看板映射.md
 *.pptx
 !exports/Monthly-Note_营销策略总结_2026-09_B.pptx
+config/sources.json
+.env
+.env.*
+!.env.example
