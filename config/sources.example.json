@@ -1,0 +1,9 @@
+[
+  {
+    "name": "示例行业 RSS",
+    "platform": "rss",
+    "feed_url": "https://example.com/feed.xml",
+    "trust_level": 2,
+    "enabled": false
+  }
+]
