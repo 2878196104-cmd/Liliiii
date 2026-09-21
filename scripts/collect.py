@@ -36,7 +36,7 @@ def fetch_bytes(url: str) -> bytes:
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
     )
-    with urllib.request.urlopen(req, timeout=30) as response:
+    with urllib.request.urlopen(req, timeout=12) as response:
         return response.read()
 
 
@@ -44,7 +44,7 @@ def request(url: str, *, method: str = "GET", body=None, headers=None):
     merged = {"User-Agent": USER_AGENT, **(headers or {})}
     data = None if body is None else json.dumps(body).encode("utf-8")
     req = urllib.request.Request(url, data=data, method=method, headers=merged)
-    with urllib.request.urlopen(req, timeout=30) as response:
+    with urllib.request.urlopen(req, timeout=12) as response:
         payload = response.read()
         return json.loads(payload) if payload else None
 
@@ -281,6 +281,23 @@ def main():
         raise SystemExit(f"Missing {SOURCE_FILE}")
 
     sources = [item for item in json.loads(SOURCE_FILE.read_text("utf-8")) if item.get("enabled")]
+    print(json.dumps({
+        "preflight": "starting",
+        "secret_key_format": "sb_secret" if SERVICE_KEY.startswith("sb_secret_") else "legacy_or_unknown",
+        "source_count": len(sources),
+    }, ensure_ascii=False))
+    try:
+        supabase("sources?select=id&limit=1")
+        print(json.dumps({"preflight": "supabase_ok"}, ensure_ascii=False))
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="ignore")[:500]
+        print(json.dumps({
+            "preflight": "supabase_failed",
+            "status": error.code,
+            "detail": detail,
+        }, ensure_ascii=False), file=sys.stderr)
+        raise SystemExit(1)
+
     inserted = skipped = failed = successful_sources = 0
     for source in sources:
         try:
@@ -320,9 +337,24 @@ def main():
                 "discovered": len(items),
                 "status": "ok",
             }, ensure_ascii=False))
+        except urllib.error.HTTPError as error:
+            failed += 1
+            failing_host = urllib.parse.urlparse(getattr(error, "url", "")).netloc
+            detail = error.read().decode("utf-8", errors="ignore")[:300]
+            print(json.dumps({
+                "source": source.get("name"),
+                "status": "http_error",
+                "host": failing_host,
+                "http_status": error.code,
+                "detail": detail,
+            }, ensure_ascii=False), file=sys.stderr)
         except Exception as error:
             failed += 1
-            print(f"collector error [{source.get('name')}]: {error}", file=sys.stderr)
+            print(json.dumps({
+                "source": source.get("name"),
+                "status": "error",
+                "detail": str(error),
+            }, ensure_ascii=False), file=sys.stderr)
 
     print(json.dumps({
         "inserted": inserted,
