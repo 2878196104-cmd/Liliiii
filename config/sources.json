@@ -1,1 +1,166 @@
-[]
+[
+  {
+    "name": "SocialBeta 营销案例",
+    "base_url": "https://socialbeta.com/",
+    "platform": "营销媒体",
+    "feed_url": null,
+    "trust_level": 2,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html",
+    "entry_url": "https://socialbeta.com/",
+    "include_patterns": [
+      "/(campaign|article)/"
+    ],
+    "keywords": [
+      "品牌",
+      "营销",
+      "家居",
+      "消费",
+      "电商",
+      "新品",
+      "联名"
+    ],
+    "max_items": 8
+  },
+  {
+    "name": "数英 DIGITALING",
+    "base_url": "https://www.digitaling.com/",
+    "platform": "营销媒体",
+    "feed_url": null,
+    "trust_level": 2,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html",
+    "entry_url": "https://www.digitaling.com/",
+    "include_patterns": [
+      "/(articles|projects|dclub)/"
+    ],
+    "keywords": [
+      "品牌",
+      "营销",
+      "家居",
+      "消费",
+      "电商",
+      "新品",
+      "联名"
+    ],
+    "max_items": 8
+  },
+  {
+    "name": "Morketing",
+    "base_url": "https://www.morketing.com/",
+    "platform": "营销媒体",
+    "feed_url": null,
+    "trust_level": 2,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html",
+    "entry_url": "https://www.morketing.com/",
+    "include_patterns": [
+      "/(view|article|detail)/"
+    ],
+    "keywords": [
+      "品牌",
+      "营销",
+      "消费",
+      "电商",
+      "零售",
+      "新品"
+    ],
+    "max_items": 8
+  },
+  {
+    "name": "中国质量新闻网·家居建材",
+    "base_url": "https://www.cqn.com.cn/",
+    "platform": "家居行业媒体",
+    "feed_url": null,
+    "trust_level": 3,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html",
+    "entry_url": "https://www.cqn.com.cn/jiajujiancai/index.htm",
+    "include_patterns": [
+      "/jiajujiancai/content/"
+    ],
+    "keywords": [
+      "家居",
+      "家具",
+      "床垫",
+      "沙发",
+      "整家",
+      "定制",
+      "消费"
+    ],
+    "max_items": 10
+  },
+  {
+    "name": "中国家具协会",
+    "base_url": "https://www.cnfa.com.cn/",
+    "platform": "行业协会",
+    "feed_url": null,
+    "trust_level": 3,
+    "enabled": true,
+    "collection_interval_minutes": 720,
+    "mode": "html",
+    "entry_url": "https://www.cnfa.com.cn/",
+    "include_patterns": [
+      "/infodetails"
+    ],
+    "keywords": [
+      "家具",
+      "家居",
+      "设计",
+      "材料",
+      "消费",
+      "产业"
+    ],
+    "max_items": 10
+  },
+  {
+    "name": "新浪家居",
+    "base_url": "https://jiaju.sina.com.cn/",
+    "platform": "家居行业媒体",
+    "feed_url": null,
+    "trust_level": 2,
+    "enabled": true,
+    "collection_interval_minutes": 360,
+    "mode": "html",
+    "entry_url": "https://jiaju.sina.com.cn/",
+    "include_patterns": [
+      "news"
+    ],
+    "keywords": [
+      "家居",
+      "家具",
+      "品牌",
+      "新品",
+      "展会",
+      "门店",
+      "营销"
+    ],
+    "max_items": 10
+  },
+  {
+    "name": "慕思官方资讯",
+    "base_url": "https://www.derucci.com/",
+    "platform": "品牌官网",
+    "feed_url": null,
+    "trust_level": 2,
+    "enabled": true,
+    "collection_interval_minutes": 720,
+    "mode": "html",
+    "entry_url": "https://www.derucci.com/news/",
+    "include_patterns": [
+      "/news/info"
+    ],
+    "keywords": [
+      "慕思",
+      "睡眠",
+      "床垫",
+      "新品",
+      "发布"
+    ],
+    "max_items": 8
+  }
+]
