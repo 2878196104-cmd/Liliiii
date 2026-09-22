@@ -274,7 +274,6 @@
     }
   });
 
-  $(".primary-tabs");
   document.querySelector(".primary-tabs").addEventListener("click", event => {
     const button = event.target.closest("[data-view]");
     if (button) activateView(button.dataset.view).catch(showError);
