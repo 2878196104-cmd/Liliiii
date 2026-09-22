@@ -191,17 +191,23 @@
   function renderTrendCards(events){
     return '<section class="card panel monthly-overview"><div class="monthly-section-head"><div><div class="section-index">01 / '+monthLabel(activeReportMonth)+' · 行业趋势</div><h2 class="panel-title">本月家具行业发生了什么</h2><p>仅从本月已核验行业资料与已发布案例归纳，不把单篇报道直接当作行业结论。</p></div><span class="monthly-count-badge">3–5 条月度判断</span></div><div class="monthly-trend-grid">'+buildIndustryInsights(events).map((item,index)=>'<article class="monthly-trend-card"><small>'+String(index+1).padStart(2,'0')+' / 月度判断</small><h3>'+safe(item.title)+'</h3><p>'+safe(item.explain)+'</p><footer><span>'+item.hits.length+' 条相关证据</span><span>'+safe(item.brands.slice(0,3).join('、')||'等待补充')+'</span></footer></article>').join('')+'</div></section>';
   }
+  function activityOverview(event){
+    const actions=(event.actions||[]).slice(0,2).join('、');
+    const raw=event.matrixSummary||event.summary||event.productStrategy||(actions&&event.coreStrategy?`通过${actions}，强化“${event.coreStrategy}”`:'')||event.coreStrategy||event.purpose||event.result||'已收录活动资料，等待补充具体执行信息。';
+    const sentence=String(Array.isArray(raw)?raw.join('；'):raw).replace(/\s+/g,' ').trim();
+    return sentence.length>76?sentence.slice(0,76).replace(/[，、；：]?$/,'')+'…':sentence;
+  }
   function renderChannelMatrix(events,brands){
     const rows=brands.map(brand=>{
       const brandEvents=events.filter(event=>event.brand===brand);
       const cells=channelGroups.map(group=>{
         const matched=brandEvents.filter(event=>eventChannels(event).includes(group.key));
-        const labels=[...new Set(matched.map(event=>event.type||event.theme||'已记录'))].slice(0,2);
-        return '<button class="channel-cell '+(matched.length?'has-action':'is-empty')+'" data-matrix-brand="'+safe(brand)+'" '+(matched.length?'':'disabled')+' aria-label="'+safe(brand+' '+group.label+' '+matched.length+'条动作')+'"><strong>'+(matched.length||'—')+'</strong><small>'+safe(labels.join(' / ')||(matched.length?'已记录':'暂无动作'))+'</small></button>';
+        if(!matched.length)return '<div class="channel-cell is-empty" aria-label="'+safe(brand+' '+group.label+' 暂无已发布动作')+'"><span>—</span><small>暂无已发布动作</small></div>';
+        return '<div class="channel-cell has-action"><div class="channel-cell-meta"><span>'+matched.length+' 项动作</span></div>'+matched.map(event=>'<button class="matrix-event" data-matrix-brand="'+safe(brand)+'" data-matrix-event="'+safe(event.event)+'" aria-label="查看 '+safe(brand+' '+event.event)+'"><span>'+safe(event.type||event.theme||'品牌动作')+'</span><strong>'+safe(event.event||event.theme||'未命名活动')+'</strong><p>'+safe(activityOverview(event))+'</p><em>查看案例 →</em></button>').join('')+'</div>';
       }).join('');
-      return '<div class="channel-row"><button class="channel-brand" data-matrix-brand="'+safe(brand)+'"><strong>'+safe(brand)+'</strong><small>'+brandEvents.length+' 个案例</small></button>'+cells+'</div>';
+      return '<div class="channel-row"><button class="channel-brand" data-matrix-brand="'+safe(brand)+'"><span>重点竞品</span><strong>'+safe(brand)+'</strong><small>'+brandEvents.length+' 个案例</small></button>'+cells+'</div>';
     }).join('');
-    return '<section class="card panel monthly-matrix"><div class="monthly-section-head"><div><div class="section-index">02 / 竞品动作</div><h2 class="panel-title">品牌 × 渠道矩阵</h2><p>查看重点竞品本月在哪些渠道发生动作；点击品牌或有数据的单元格，进入案例拆解。</p></div><span class="monthly-count-badge">'+brands.length+' 个品牌 · '+events.length+' 个案例</span></div><div class="channel-matrix-wrap"><div class="channel-matrix"><div class="channel-header"><span>重点竞品</span>'+channelGroups.map(group=>'<strong>'+group.label+'</strong>').join('')+'</div>'+rows+'</div></div><p class="note">“—”表示当前已发布资料中尚未发现对应动作，不等同于品牌实际没有布局；矩阵会随审核通过的案例自动补充。</p></section>';
+    return '<section class="card panel monthly-matrix"><div class="monthly-section-head"><div><div class="section-index">02 / 竞品动作</div><h2 class="panel-title">品牌 × 渠道全景</h2><p>横向看同一品牌如何联动不同渠道，纵向比较竞品在同一渠道分别讲什么、怎么做。</p></div><span class="monthly-count-badge">'+brands.length+' 个品牌 · '+events.length+' 个案例</span></div><div class="channel-matrix-wrap"><div class="channel-matrix"><div class="channel-header"><span>重点竞品</span>'+channelGroups.map(group=>'<strong>'+group.label+'</strong>').join('')+'</div>'+rows+'</div></div><p class="note">每张卡片展示活动主题与一句话概览；同一活动跨渠道执行时会出现在对应的多个渠道中。“—”仅表示当前已发布资料尚未覆盖。</p></section>';
   }
   const placements={
     '源氏木语':{label:'展会',x:19,y:65},
@@ -221,6 +227,11 @@
     pane.querySelector('[data-report-month]').onchange=event=>{activeReportMonth=event.target.value;activeBrand=null;activeEvent=0;renderMonthly();};
     pane.querySelectorAll('[data-matrix-brand]').forEach(button=>button.onclick=()=>{
       activeBrand=button.dataset.matrixBrand;activeDimension='product';activeStep=0;activeEvent=0;
+      if(button.dataset.matrixEvent){
+        const items=events.filter(event=>event.brand===activeBrand);
+        const found=items.findIndex(event=>event.event===button.dataset.matrixEvent);
+        activeEvent=Math.max(0,found);
+      }
       renderReader();
       document.querySelector('#monthlyReader').scrollIntoView({behavior:'smooth',block:'start'});
     });
