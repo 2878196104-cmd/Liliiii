@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "忽略来源频次，立即全量采集"
+        required: false
+        default: true
+        type: boolean
   push:
     branches:
       - main
@@ -32,4 +38,5 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FORCE_COLLECT: ${{ github.event_name == 'workflow_dispatch' && inputs.force || false }}
         run: python scripts/collect.py
