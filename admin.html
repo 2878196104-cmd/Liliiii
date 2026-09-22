@@ -81,9 +81,10 @@
         <div class="filters event-filters">
           <button data-status="pending" class="active">待审核</button>
           <button data-status="needs_evidence">证据不足</button>
-          <button data-status="approved">已批准</button>
+          <button data-status="approved">已发布</button>
           <button data-status="rejected">已驳回</button>
         </div>
+        <p class="workflow-note">事件先生成看板预览；只有在预览中确认发布后，才会进入公开研究看板。</p>
         <div id="eventQueue" class="event-queue"></div>
       </section>
 
@@ -100,6 +101,11 @@
   <dialog id="documentDialog" class="document-dialog">
     <button class="dialog-close" id="closeDocumentDialog" aria-label="关闭">×</button>
     <div id="documentDetail"></div>
+  </dialog>
+
+  <dialog id="eventPreviewDialog" class="document-dialog preview-dialog">
+    <button class="dialog-close" id="closeEventPreview" aria-label="关闭">×</button>
+    <div id="eventPreview"></div>
   </dialog>
 
   <script src="runtime-config.js"></script>
