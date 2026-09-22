@@ -111,7 +111,7 @@
   function chapterMedia(keys){
     if(competitorProfiles[activeBrand]){
       const e=competitorProfiles[activeBrand].events[activeEvent];
-      return (e.materialPlacement?.[activeDimension]?.[activeStep]||[]).map(id=>noteMedia.find(n=>n.id===id)).filter(Boolean);
+      return (e.materialPlacement?.[activeDimension]?.[activeStep]||[]).map(id=>(e.media||[]).find(n=>n.id===id)||noteMedia.find(n=>n.id===id)).filter(Boolean);
     }
     // Each note has one editorial home; source citations may still support other chapters.
     const materialPlacement={
@@ -127,7 +127,8 @@
   lightbox.addEventListener('click',ev=>{if(ev.target===lightbox)lightbox.close();});
   function openMedia(n,index=0){
     const images=n.images?.length?n.images:[n.image];
-    lightbox.innerHTML='<button class="lightbox-close" aria-label="关闭图片">关闭 ×</button><h3>'+safe(n.title)+'</h3><img src="'+safe(images[index])+'" alt="'+safe(n.title)+' 第'+(index+1)+'张" referrerpolicy="no-referrer"><div class="lightbox-paging"><button data-media-prev>← 上一张</button><span>'+(index+1)+' / '+images.length+'</span><button data-media-next>下一张 →</button></div><a href="https://www.xiaohongshu.com/explore/'+safe(n.id)+'" target="_blank" rel="noopener noreferrer">查看原笔记 ↗</a>';
+    const sourceUrl=n.url||'https://www.xiaohongshu.com/explore/'+n.id;
+    lightbox.innerHTML='<button class="lightbox-close" aria-label="关闭图片">关闭 ×</button><h3>'+safe(n.title)+'</h3><img src="'+safe(images[index])+'" alt="'+safe(n.title)+' 第'+(index+1)+'张" referrerpolicy="no-referrer"><div class="lightbox-paging"><button data-media-prev>← 上一张</button><span>'+(index+1)+' / '+images.length+'</span><button data-media-next>下一张 →</button></div><a href="'+safe(sourceUrl)+'" target="_blank" rel="noopener noreferrer">查看原始来源 ↗</a>';
     lightbox.querySelector('.lightbox-close').onclick=()=>lightbox.close();
     lightbox.querySelector('img').onerror=ev=>{ev.target.hidden=true;const p=document.createElement('p');p.textContent='原图暂不可用，请打开原笔记查看物料。';ev.target.after(p);};
     lightbox.querySelector('[data-media-prev]').onclick=()=>openMedia(n,(index-1+images.length)%images.length);
@@ -288,8 +289,9 @@
       (activeBrand!=='源氏木语'&&activeDimension==='positioning'?'<small>定位解读</small>':'')+
       '<div class="chapter-sources">'+evidenceKeys.filter(k=>sources[k]).map(k=>'<a href="'+safe(sources[k].url)+'" target="_blank" rel="noopener noreferrer">'+safe(sources[k].name)+' ↗</a>').join('')+'</div></div><div class="reader-footer">'+link(e)+'</div></div>'+
       (hero?'<figure class="monthly-story-image"><img src="'+safe(hero)+'" alt="'+safe(heroCaption)+'" loading="lazy"><figcaption>'+safe(heroCaption)+'</figcaption>'+(isFilm&&e.videoUrl?'<a href="'+safe(e.videoUrl)+'" target="_blank" rel="noopener noreferrer">观看完整广告片 ↗</a>':'')+'</figure>':'')+'</div>'+
-      (media.length?'<section class="monthly-materials"><h3>官方物料</h3>'+media.map(n=>'<article class="monthly-note-sheet"><a href="https://www.xiaohongshu.com/explore/'+safe(n.id)+'" target="_blank" rel="noopener noreferrer">'+safe(n.title)+' ↗</a><small>'+n.date+' · '+(n.images?.length||1)+'张采集图片</small><div class="monthly-material-grid">'+(n.images?.length?n.images:[n.image]).map((url,i)=>({url,i})).filter(x=>x.url!==hero).map(({url,i})=>'<button data-media-id="'+safe(n.id)+'" data-image-index="'+i+'"><img src="'+safe(url)+'" alt="'+safe(n.title)+' 第'+(i+1)+'张" loading="lazy" referrerpolicy="no-referrer"><small>'+(i+1)+' / '+(n.images?.length||1)+'</small></button>').join('')+'</div></article>').join('')+'</section>':'')+'</section>';
-    host.querySelectorAll('[data-media-id]').forEach(b=>{b.onclick=()=>openMedia(noteMedia.find(n=>n.id===b.dataset.mediaId),Number(b.dataset.imageIndex));b.querySelector('img').onerror=ev=>{ev.target.hidden=true;b.classList.add('image-unavailable');b.querySelector('small').textContent='图片暂不可用 · 查看原笔记';};});
+      (media.length?'<section class="monthly-materials"><h3>活动物料</h3>'+media.map(n=>'<article class="monthly-note-sheet"><a href="'+safe(n.url||'https://www.xiaohongshu.com/explore/'+n.id)+'" target="_blank" rel="noopener noreferrer">'+safe(n.title)+' ↗</a><small>'+n.date+' · '+(n.images?.length||1)+'张采集图片</small><div class="monthly-material-grid">'+(n.images?.length?n.images:[n.image]).map((url,i)=>({url,i})).filter(x=>x.url!==hero).map(({url,i})=>'<button data-media-id="'+safe(n.id)+'" data-image-index="'+i+'"><img src="'+safe(url)+'" alt="'+safe(n.title)+' 第'+(i+1)+'张" loading="lazy" referrerpolicy="no-referrer"><small>'+(i+1)+' / '+(n.images?.length||1)+'</small></button>').join('')+'</div></article>').join('')+'</section>':'')+'</section>';
+    const eventMedia=competitorProfiles[activeBrand]?.events[activeEvent]?.media||[];
+    host.querySelectorAll('[data-media-id]').forEach(b=>{b.onclick=()=>openMedia(eventMedia.find(n=>n.id===b.dataset.mediaId)||noteMedia.find(n=>n.id===b.dataset.mediaId),Number(b.dataset.imageIndex));b.querySelector('img').onerror=ev=>{ev.target.hidden=true;b.classList.add('image-unavailable');b.querySelector('small').textContent='图片暂不可用 · 查看原始来源';};});
     host.querySelector('.reader-close').onclick=()=>{activeBrand=null;renderMonthly();};
     host.querySelectorAll('[data-dimension]').forEach(b=>b.onclick=()=>{activeDimension=b.dataset.dimension;activeStep=0;renderReader();});
     host.querySelectorAll('[data-reader-step]').forEach(b=>b.onclick=()=>{activeStep=Number(b.dataset.readerStep);renderReader();});
