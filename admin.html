@@ -10,16 +10,20 @@
   <main class="admin-shell">
     <header class="topbar">
       <div>
-        <small>MONTHLY KNOW · INTELLIGENCE OPERATIONS</small>
+        <a class="brand-home" href="index.html">MONTHLY KNOW</a>
+        <small>INTELLIGENCE OPERATIONS</small>
         <h1>管理者采集后台</h1>
         <p>统一管理信息源、核验原始资料，并控制哪些内容进入研究体系。</p>
       </div>
-      <a class="back-link" href="skill-output-dashboard.html">返回研究看板 ↗</a>
+      <nav class="top-links" aria-label="页面入口">
+        <a href="index.html">首页</a>
+        <a class="back-link" href="skill-output-dashboard.html">进入 Monthly Note ↗</a>
+      </nav>
     </header>
 
     <section class="login-panel surface" id="loginPanel">
       <div class="login-copy">
-        <span class="eyebrow">ADMIN ACCESS</span>
+        <span class="eyebrow">ADMIN / OPERATIONS</span>
         <h2>管理员登录</h2>
         <p>使用 Supabase Auth 管理员账号。公开访问者无法读取原始采集内容。</p>
       </div>

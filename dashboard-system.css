@@ -1,6 +1,7 @@
 /* Shared reference-led visual system. Content remains evidence-first. */
 :root{--line:#d8e2e4;--muted:#59666b;--cyan:#8dcedf;--lime:#c8dc87;--surface:#edf3f4;--ink:#202628}
 body{background:#afbdce;color:var(--ink)}
+.product-links{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}.product-links>a{padding:10px 15px;border-radius:999px;background:#dbe8ea;color:#304d54;font-size:12px;font-weight:700;text-decoration:none}.product-links>.admin-entry{background:#202628;color:#fff}
 .shell{max-width:1420px;margin:32px auto;padding:28px 32px 40px;background:#e7eef0;border:0;border-radius:38px;box-shadow:0 25px 80px #435b7020}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 0 22px;border:0;margin:0}
 h1{font-size:28px}.eyebrow{color:#52666e;font-size:11px}.subhead{max-width:720px;font-size:14px}.coverage-note{border:0;border-radius:24px;background:#202628;color:white;padding:15px 22px;min-width:160px}.coverage-note span,.coverage-note small{color:#d3dddf}.coverage-note strong{font-family:inherit;font-size:22px}
