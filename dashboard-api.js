@@ -33,11 +33,16 @@
   }
 
   function mapEvent(row) {
+    const date = row.happened_at ? row.happened_at.slice(0, 10) : "待确认";
     return {
       id: row.id,
       brand: row.brand || "待归类",
       event: row.title,
-      date: row.happened_at ? row.happened_at.slice(0, 10) : "待确认",
+      date,
+      reportMonth: row.report_month || (date !== "待确认" ? date.slice(0, 7) : "待归档"),
+      caseKey: row.case_key || "",
+      qualityScore: Number(row.quality_score || 0),
+      version: Number(row.version || 1),
       type: row.event_type || "其他",
       theme: row.theme || "",
       purpose: row.purpose || "",
@@ -53,24 +58,35 @@
   }
 
   function eventKey(event) {
-    return [event.brand || "待归类", event.date || "待确认", event.event || ""]
+    if (event.caseKey) return `${event.reportMonth || event.date?.slice(0, 7) || "待归档"}|${event.caseKey}`;
+    return [event.reportMonth || event.date?.slice(0, 7) || "待归档", event.brand || "待归类", event.date || "待确认", event.event || ""]
       .map(value => String(value).trim().toLowerCase())
       .join("|");
   }
 
   function mergeEvents(liveRows) {
-    const merged = baselineEvents.map(event => structuredClone(event));
+    const merged = baselineEvents.map(event => ({
+      ...structuredClone(event),
+      reportMonth: event.reportMonth || event.date?.slice(0, 7) || "待归档",
+      qualityScore: Number(event.qualityScore || 50),
+      version: Number(event.version || 1),
+      dataLayer: "curated"
+    }));
     const positions = new Map(merged.map((event, index) => [eventKey(event), index]));
     liveRows.map(mapEvent).forEach(event => {
+      event.dataLayer = "live";
       const key = eventKey(event);
       const existingIndex = positions.get(key);
       if (existingIndex === undefined) {
         positions.set(key, merged.length);
         merged.push(event);
       } else {
-        // A reviewed database record is authoritative for matching summary fields,
-        // while the curated baseline retains richer research/material metadata.
-        merged[existingIndex] = { ...merged[existingIndex], ...event };
+        const previous = merged[existingIndex];
+        const incomingWins = event.qualityScore > previous.qualityScore ||
+          (event.qualityScore === previous.qualityScore && event.version >= previous.version);
+        merged[existingIndex] = incomingWins
+          ? { ...previous, ...event }
+          : { ...event, ...previous };
       }
     });
     return merged;

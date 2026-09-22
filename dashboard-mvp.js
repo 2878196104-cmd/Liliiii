@@ -152,6 +152,14 @@
     ]}
   ];}
   let activeBrand=null, activeDimension='product', activeStep=0, activeEvent=0;
+  const monthOf=e=>e.reportMonth||(/^\d{4}-\d{2}/.test(e.date||'')?e.date.slice(0,7):'待归档');
+  const now=new Date();
+  const recentMonths=Array.from({length:12},(_,offset)=>{
+    const date=new Date(now.getFullYear(),now.getMonth()-offset,1);
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+  });
+  let activeReportMonth=recentMonths[0];
+  const monthLabel=value=>value==='待归档'?'待归档':`${Number(value.slice(5,7))}月月报`;
   const placements={
     '源氏木语':{label:'展会',x:19,y:65},
     '顾家家居':{label:'新品私享会 · 渠道交流',x:39,y:83},
@@ -160,7 +168,10 @@
     '慕思床垫':{label:'新品发布会',x:80,y:83}
   };
   function renderMonthly(){
-    const events=state.events||[];
+    const allEvents=state.events||[];
+    const available=[...new Set([...recentMonths,...allEvents.map(monthOf)])];
+    if(!available.includes(activeReportMonth))activeReportMonth=available[0];
+    const events=allEvents.filter(event=>monthOf(event)===activeReportMonth);
     const brands=[...new Set(events.map(e=>e.brand))];
     if(!brands.includes(activeBrand))activeBrand=null;
     const activity=brands.map((brand,i)=>{
@@ -175,7 +186,8 @@
       return '<button class="coord-brand '+(activeBrand===a.brand?'selected':'')+'" data-monthly-brand="'+safe(a.brand)+'" style="--activity:'+score+'" aria-pressed="'+(activeBrand===a.brand)+'" title="本期收录活跃指数 '+score+'；'+a.count+'个独立事件"><span class="coord-dot"></span><strong>'+safe(a.brand)+'</strong><small>'+safe(a.p.label)+'</small><span class="coord-activity">活跃指数 <b>'+score+'</b><em>'+a.count+'个事件</em></span></button>';
     };
     const lane=(online,label)=>'<section class="coord-lane"><div class="coord-lane-label">'+label+'</div><div class="coord-brand-row">'+activity.filter(a=>(a.p.y<50)===online).map(card).join('')+'</div></section>';
-    pane.innerHTML='<section class="card panel"><div class="section-index">01 / 本月竞品动作</div><h2 class="panel-title">竞品全景图</h2><div class="monthly-coordinate activity-map">'+lane(true,'线上 · 内容与平台活动')+lane(false,'线下 · 展会与发布活动')+'</div><p class="note">本期收录活跃指数＝品牌独立事件数 ÷ 本期最高事件数 × 100。卡片随指数增大，同一区域按指数降序排列，同分保持品牌顺序；仅反映已收录样本，不代表全市场活跃度或营销效果。</p></section><div class="monthly-dimensions" id="monthlyReader" aria-live="polite"></div>';
+    pane.innerHTML='<section class="card panel"><div class="monthly-report-head"><div><div class="section-index">01 / '+monthLabel(activeReportMonth)+' · 竞品动作</div><h2 class="panel-title">竞品全景图</h2></div><label class="monthly-report-picker">查看月报<select class="select" data-report-month>'+available.map(month=>'<option value="'+safe(month)+'" '+(month===activeReportMonth?'selected':'')+'>'+safe(monthLabel(month))+' · '+safe(month)+'</option>').join('')+'</select></label></div>'+(events.length?'<div class="monthly-coordinate activity-map">'+lane(true,'线上 · 内容与平台活动')+lane(false,'线下 · 展会与发布活动')+'</div>':'<div class="monthly-empty"><strong>'+monthLabel(activeReportMonth)+'尚未形成已发布案例</strong><p>资料仍可继续采集、审核和补充；通过看板预览验证后，才会进入本月月报。</p></div>')+'<p class="note">月报按事件发生月份归档。同一案例获得更完整、更可靠的证据后，会补充或替换旧版本；历史月份不会被后续月份覆盖。</p></section><div class="monthly-dimensions" id="monthlyReader" aria-live="polite"></div>';
+    pane.querySelector('[data-report-month]').onchange=event=>{activeReportMonth=event.target.value;activeBrand=null;activeEvent=0;renderMonthly();};
     pane.querySelectorAll('[data-monthly-brand]').forEach(button=>button.onclick=()=>{
       activeBrand=button.dataset.monthlyBrand;activeDimension='product';activeStep=0;activeEvent=0;
       pane.querySelectorAll('[data-monthly-brand]').forEach(b=>{b.classList.toggle('selected',b===button);b.setAttribute('aria-pressed',String(b===button));});
@@ -187,7 +199,7 @@
   function renderReader(){
     const host=pane.querySelector('#monthlyReader');
     if(!activeBrand){host.innerHTML='';return;}
-    const items=(state.events||[]).filter(e=>e.brand===activeBrand);
+    const items=(state.events||[]).filter(e=>e.brand===activeBrand&&monthOf(e)===activeReportMonth);
     const e=items[activeEvent]||items[0],r=e.research||{};
     const isCampaign=/电商|促销|618|双11|双十一|抖音|京东|天猫/.test([e.event,e.type,e.purpose,...(e.channels||[])].join(' '));
     const isFilm=/广告片|短片|影片/.test(e.event||'');

@@ -112,3 +112,4 @@ body{background:linear-gradient(145deg,#cbd5df 0%,#e5e9e7 52%,#d7dee8 100%)}
 .data-connection-badge[data-tone="live"]::before { background: #3f7254; }
 .data-connection-badge[data-tone="loading"]::before { background: #a36c3d; }
 .data-connection-badge[data-tone="error"]::before { background: #9f5e54; }
+.monthly-report-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}.monthly-report-picker{display:grid;gap:6px;color:#6d7068;font-size:12px}.monthly-report-picker .select{min-width:180px}.monthly-empty{margin:24px 0;padding:34px;border:1px dashed var(--line);border-radius:18px;text-align:center;color:#666b64;background:rgba(255,255,255,.42)}.monthly-empty strong{display:block;color:#27352e;font-size:18px}.monthly-empty p{margin:8px 0 0}@media(max-width:620px){.monthly-report-head{display:grid}.monthly-report-picker .select{width:100%}}
