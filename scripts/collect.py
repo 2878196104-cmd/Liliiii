@@ -13,6 +13,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from pathlib import Path
@@ -27,6 +28,16 @@ SOURCE_COLUMNS = {
     "name", "base_url", "platform", "feed_url", "trust_level",
     "enabled", "collection_interval_minutes"
 }
+FORCE_COLLECT = os.environ.get("FORCE_COLLECT", "").lower() in {"1", "true", "yes"}
+CORE_TERMS = {
+    "家居", "家具", "床垫", "沙发", "睡眠", "整家", "定制", "软体", "材料",
+    "品牌", "消费", "零售", "电商", "门店", "出海", "生活方式",
+}
+ACTION_TERMS = {
+    "发布", "推出", "上线", "开店", "联名", "升级", "增长", "报告", "趋势",
+    "战略", "渠道", "用户", "消费者", "销量", "营收", "融资", "营销", "案例", "新品", "展会", "ai",
+}
+NOISE_TERMS = {"招聘", "招标", "联系我们", "隐私政策", "用户协议", "登录", "注册", "下载app"}
 
 
 def fetch_bytes(url: str) -> bytes:
@@ -82,6 +93,70 @@ def normalized_date(value: str | None):
     if match:
         return f"{match.group(1)}-{int(match.group(2)):02d}-{int(match.group(3)):02d}T00:00:00+00:00"
     return None
+
+
+def score_item(source, item):
+    """Score before an item reaches the human inbox; keep the rationale for audit."""
+    haystack = clean(f"{item.get('title', '')} {item.get('body', '')}").lower()
+    core_hits = sorted(term for term in CORE_TERMS if term.lower() in haystack)
+    action_hits = sorted(term for term in ACTION_TERMS if term.lower() in haystack)
+    noise_hits = sorted(term for term in NOISE_TERMS if term.lower() in haystack)
+
+    topic_score = min(30, len(core_hits) * 6)
+    value_score = min(25, len(action_hits) * 4)
+    trust_score = {1: 5, 2: 10, 3: 15}.get(int(source.get("trust_level", 2)), 10)
+    completeness_score = 4
+    if len(item.get("title", "")) >= 8:
+        completeness_score += 2
+    if len(item.get("body", "")) >= 80:
+        completeness_score += 2
+    if item.get("url"):
+        completeness_score += 1
+    if item.get("published"):
+        completeness_score += 1
+
+    freshness_score = 4
+    published = item.get("published")
+    if published:
+        try:
+            parsed = datetime.fromisoformat(published.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            age_days = max(0, (datetime.now(timezone.utc) - parsed).days)
+            freshness_score = 15 if age_days <= 7 else 12 if age_days <= 30 else 8 if age_days <= 90 else 0
+        except (TypeError, ValueError):
+            pass
+
+    penalty = 30 if noise_hits else 0
+    score = max(0, min(100, topic_score + value_score + trust_score + completeness_score + freshness_score - penalty))
+    status = "new" if score >= 60 else "needs_review" if score >= 45 else "ignored"
+    return {
+        "score": score,
+        "status": status,
+        "topic_hits": core_hits,
+        "value_hits": action_hits,
+        "noise_hits": noise_hits,
+        "breakdown": {
+            "topic": topic_score,
+            "strategic_value": value_score,
+            "source_trust": trust_score,
+            "completeness": completeness_score,
+            "freshness": freshness_score,
+            "penalty": penalty,
+        },
+        "version": "prefilter-v1",
+    }
+
+
+def is_due(source_row):
+    if FORCE_COLLECT or not source_row.get("last_collected_at"):
+        return True
+    try:
+        last = datetime.fromisoformat(source_row["last_collected_at"].replace("Z", "+00:00"))
+        interval = int(source_row.get("collection_interval_minutes") or 360)
+        return (datetime.now(timezone.utc) - last).total_seconds() >= interval * 60
+    except (TypeError, ValueError):
+        return True
 
 
 def parse_feed(payload: bytes):
@@ -275,6 +350,57 @@ def source_row(source):
     return {key: value for key, value in source.items() if key in SOURCE_COLUMNS}
 
 
+def prepare_source(source):
+    encoded = urllib.parse.quote(source["name"], safe="")
+    existing = supabase(f"sources?select=*&name=eq.{encoded}&limit=1") or []
+    if existing:
+        current = existing[0]
+        payload = source_row(source)
+        # Database values are operator controls; config remains the discovery registry.
+        payload["enabled"] = current.get("enabled", payload.get("enabled", True))
+        payload["collection_interval_minutes"] = current.get(
+            "collection_interval_minutes", payload.get("collection_interval_minutes", 360)
+        )
+    else:
+        current = None
+        payload = source_row(source)
+    rows = supabase(
+        "sources?on_conflict=name",
+        method="POST",
+        body=[payload],
+        prefer="resolution=merge-duplicates,return=representation",
+    )
+    return rows[0]
+
+
+def rescore_existing():
+    rows = supabase(
+        "raw_documents?select=id,title,body_text,canonical_url,published_at,kind,raw_payload,processing_status,"
+        "sources(name,platform,trust_level)&processing_status=in.(new,needs_review)&limit=1000"
+    ) or []
+    changed = 0
+    for row in rows:
+        source = row.get("sources") or {}
+        item = {
+            "title": row.get("title") or "",
+            "body": row.get("body_text") or "",
+            "url": row.get("canonical_url") or "",
+            "published": row.get("published_at"),
+            "kind": row.get("kind") or "article",
+        }
+        prefilter = score_item(source, item)
+        raw_payload = row.get("raw_payload") or {}
+        if row.get("processing_status") != prefilter["status"] or raw_payload.get("prefilter") != prefilter:
+            raw_payload["prefilter"] = prefilter
+            supabase(
+                f"raw_documents?id=eq.{row['id']}", method="PATCH",
+                body={"processing_status": prefilter["status"], "raw_payload": raw_payload},
+                prefer="return=minimal",
+            )
+            changed += 1
+    return changed
+
+
 def main():
     if not SUPABASE_URL or not SERVICE_KEY:
         raise SystemExit("SUPABASE_URL and SUPABASE_SECRET_KEY are required")
@@ -302,16 +428,18 @@ def main():
     inserted = skipped = failed = successful_sources = 0
     for source in sources:
         try:
+            database_source = prepare_source(source)
+            if not database_source.get("enabled", True):
+                print(json.dumps({"source": source["name"], "status": "paused"}, ensure_ascii=False))
+                continue
+            if not is_due(database_source):
+                print(json.dumps({"source": source["name"], "status": "not_due"}, ensure_ascii=False))
+                continue
             items = collect_source(source)
-            rows = supabase(
-                "sources?on_conflict=name",
-                method="POST",
-                body=[source_row(source)],
-                prefer="resolution=merge-duplicates,return=representation",
-            )
-            source_id = rows[0]["id"]
+            source_id = database_source["id"]
             for item in items:
                 digest = hashlib.sha256((item["title"] + "\n" + item["body"]).encode()).hexdigest()
+                prefilter = score_item(source, item)
                 row = {
                     "source_id": source_id,
                     "canonical_url": item["url"],
@@ -320,7 +448,8 @@ def main():
                     "published_at": item["published"],
                     "content_hash": digest,
                     "kind": item["kind"],
-                    "raw_payload": item,
+                    "raw_payload": {**item, "prefilter": prefilter},
+                    "processing_status": prefilter["status"],
                 }
                 result = supabase(
                     "raw_documents?on_conflict=canonical_url,content_hash",
@@ -342,6 +471,9 @@ def main():
             print(json.dumps({
                 "source": source["name"],
                 "discovered": len(items),
+                "high_value": sum(score_item(source, item)["status"] == "new" for item in items),
+                "needs_review": sum(score_item(source, item)["status"] == "needs_review" for item in items),
+                "auto_ignored": sum(score_item(source, item)["status"] == "ignored" for item in items),
                 "status": "ok",
             }, ensure_ascii=False))
         except urllib.error.HTTPError as error:
@@ -363,11 +495,13 @@ def main():
                 "detail": str(error),
             }, ensure_ascii=False), file=sys.stderr)
 
+    rescored = rescore_existing()
     print(json.dumps({
         "inserted": inserted,
         "skipped": skipped,
         "successful_sources": successful_sources,
         "failed_sources": failed,
+        "rescored_existing": rescored,
     }, ensure_ascii=False))
     if sources and successful_sources == 0:
         raise SystemExit(1)
