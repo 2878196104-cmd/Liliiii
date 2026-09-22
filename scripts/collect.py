@@ -332,6 +332,12 @@ def main():
                     inserted += 1
                 else:
                     skipped += 1
+            supabase(
+                f"sources?id=eq.{source_id}",
+                method="PATCH",
+                body={"last_collected_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()},
+                prefer="return=minimal",
+            )
             successful_sources += 1
             print(json.dumps({
                 "source": source["name"],
