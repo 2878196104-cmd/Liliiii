@@ -11,10 +11,10 @@
   let events = [];
 
   const statusLabels = {
-    new: "待判断",
-    needs_review: "待核验",
+    new: "待审核",
+    needs_review: "待审核",
     accepted: "已采纳",
-    ignored: "已忽略"
+    ignored: "不采纳"
   };
 
   function configured() {
@@ -88,19 +88,23 @@
       map[row.processing_status || "new"] = (map[row.processing_status || "new"] || 0) + 1;
       return map;
     }, {});
+    const reviewed = statsRows.filter(row => row.raw_payload?.review_feedback);
+    const acceptedFeedback = reviewed.filter(row => row.raw_payload.review_feedback.decision === "accepted").length;
+    const ignoredFeedback = reviewed.filter(row => row.raw_payload.review_feedback.decision === "ignored").length;
     const cards = [
-      ["待判断", counts.new || 0, "等待人工选择"],
-      ["待核验", counts.needs_review || 0, "证据或归类不足"],
-      ["已采纳", counts.accepted || 0, "已进入证据资料库"],
-      ["已忽略", counts.ignored || 0, "不进入后续研究"]
+      ["待审核", (counts.new || 0) + (counts.needs_review || 0), "等待人工选择"],
+      ["已采纳", counts.accepted || 0, "自动进入看板预览"],
+      ["不采纳", counts.ignored || 0, "进入不采纳仓库"]
     ];
     $("statsGrid").innerHTML = cards.map(([label, value, note]) =>
       `<article><small>${label}</small><strong>${value}</strong><span>${note}</span></article>`
     ).join("");
+    $("preferenceNote").textContent = reviewed.length
+      ? `偏好学习已记录 ${reviewed.length} 次人工选择：采纳 ${acceptedFeedback} 条，不采纳 ${ignoredFeedback} 条。后续采集会据此调整来源与主题排序。`
+      : "偏好学习将在你开始采纳或不采纳后生效；系统只学习主题、来源和内容特征，不改变历史资料。";
   }
 
   function currentDocumentStatus() {
-    if (activeView === "accepted") return "accepted";
     return $("documentStatus").value;
   }
 
@@ -108,7 +112,8 @@
     const status = currentDocumentStatus();
     const sourceId = $("sourceFilter").value;
     let path = "/rest/v1/raw_documents?select=id,source_id,title,body_text,canonical_url,published_at,collected_at,processing_status,kind,raw_payload,sources(name,platform,trust_level)&order=collected_at.desc&limit=250";
-    if (status !== "all") path += `&processing_status=eq.${encodeURIComponent(status)}`;
+    if (status === "reviewable") path += "&processing_status=in.(new,needs_review)";
+    else if (status !== "all") path += `&processing_status=eq.${encodeURIComponent(status)}`;
     if (sourceId !== "all") path += `&source_id=eq.${encodeURIComponent(sourceId)}`;
     documents = await api(path);
     renderDocuments();
@@ -126,9 +131,9 @@
   function renderDocuments() {
     const rows = filteredDocuments();
     $("documentCount").textContent = rows.length;
-    $("workspaceSummary").textContent = activeView === "accepted"
-      ? `${rows.length} 条已采纳证据，可继续结构化为事件和洞察。`
-      : `${rows.length} 条资料等待判断；当前最多显示最近 250 条。`;
+    $("workspaceSummary").textContent = activeView === "review"
+      ? `${rows.length} 条资料等待人工选择；采纳后自动进入看板预览。`
+      : `${rows.length} 条采集资料；当前最多显示最近 250 条。`;
     $("documentQueue").innerHTML = rows.length ? rows.map(row => {
       const url = safeUrl(row.canonical_url);
       return `<article class="document-card" data-id="${escapeHtml(row.id)}">
@@ -147,10 +152,8 @@
         <p>${escapeHtml(excerpt(row.body_text) || "暂无正文摘要，可打开原文核验。")}</p>
         <div class="document-actions">
           ${url ? `<a class="button secondary" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">核验原文 ↗</a>` : ""}
-          <button data-doc-action="accepted">采纳</button>
-          <button data-doc-action="needs_review" class="warning">待核验</button>
-          <button data-doc-action="ignored" class="danger">忽略</button>
-          ${row.processing_status !== "new" ? '<button data-doc-action="new" class="secondary">恢复待判断</button>' : ""}
+          ${activeView === "review" ? '<button data-doc-action="accepted">采纳并进入预览</button><button data-doc-action="ignored" class="danger">不采纳</button>' : ""}
+          ${activeView === "review" && !["new","needs_review"].includes(row.processing_status) ? '<button data-doc-action="new" class="secondary">重新审核</button>' : ""}
         </div>
       </article>`;
     }).join("") : '<div class="empty">当前筛选条件下没有资料</div>';
@@ -166,18 +169,42 @@
     return "行业动态";
   }
 
+  function inferChannels(row) {
+    const text = `${row.title || ""} ${row.body_text || ""}`;
+    const rules = [[/小红书/,"小红书"],[/抖音|直播/,"抖音 / 直播"],[/京东/,"京东"],[/天猫|淘宝/,"天猫 / 淘宝"],[/门店|开业|卖场|体验店/,"门店 / 新零售"],[/展会|博览会|发布会|私享会/,"展会 / 活动"],[/媒体|报道|专访|广告片/,"媒体 / 品牌内容"]];
+    return rules.filter(([pattern]) => pattern.test(text)).map(([, label]) => label);
+  }
+
+  function inferPurpose(row) {
+    const text = `${row.title || ""} ${row.body_text || ""}`;
+    if (/新品|首发|上市/.test(text)) return "新品上市与产品认知";
+    if (/联名|跨界|IP/.test(text)) return "品牌破圈与人群拓展";
+    if (/门店|开业|渠道|经销/.test(text)) return "渠道拓展与线下体验";
+    if (/升级|焕新|高端/.test(text)) return "品牌升级与心智强化";
+    return "建立行业与品牌认知（待预览校正）";
+  }
+
   async function createCandidateEvent(row) {
     const existing = await api(`/rest/v1/event_evidence?select=event_id&document_id=eq.${encodeURIComponent(row.id)}&limit=1`);
     if (existing.length) return existing[0].event_id;
     const score = Number(row.raw_payload?.prefilter?.score || 50);
+    const topicHits = row.raw_payload?.prefilter?.topic_hits || [];
+    const valueHits = row.raw_payload?.prefilter?.value_hits || [];
+    const eventType = inferEventType(row);
+    const theme = topicHits.slice(0, 3).join(" × ") || eventType;
     const created = await api("/rest/v1/events", {
       method: "POST",
       headers: { Prefer: "return=representation" },
       body: JSON.stringify({
         title: row.title,
-        event_type: inferEventType(row),
-        theme: row.sources?.name || "待归类",
+        event_type: eventType,
+        theme,
         summary: excerpt(row.body_text, 360) || "正文摘要待补充",
+        purpose: inferPurpose(row),
+        product_strategy: /新品|产品|材料|工艺|睡眠|沙发|床垫/.test(`${row.title} ${row.body_text}`) ? excerpt(row.body_text, 180) : null,
+        core_strategy: `围绕“${theme}”形成${eventType}表达，需在预览中结合证据校正。`,
+        actions: valueHits.slice(0, 6),
+        channels: inferChannels(row),
         happened_at: row.published_at,
         status: "pending",
         confidence: Math.max(0, Math.min(1, score / 100)),
@@ -200,10 +227,25 @@
 
   async function updateDocumentStatus(id, processing_status) {
     const row = documents.find(item => item.id === id);
+    const isDecision = ["accepted", "ignored"].includes(processing_status);
+    const rawPayload = { ...(row?.raw_payload || {}) };
+    if (isDecision && row) {
+      rawPayload.review_feedback = {
+        decision: processing_status,
+        reviewed_at: new Date().toISOString(),
+        source: row.sources?.name || "未知来源",
+        platform: row.sources?.platform || row.kind || "公开网页",
+        features: {
+          topics: row.raw_payload?.prefilter?.topic_hits || [],
+          values: row.raw_payload?.prefilter?.value_hits || [],
+          prefilter_score: row.raw_payload?.prefilter?.score ?? null
+        }
+      };
+    }
     await api(`/rest/v1/raw_documents?id=eq.${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ processing_status })
+      body: JSON.stringify({ processing_status, ...(isDecision ? { raw_payload: rawPayload } : {}) })
     });
     if (processing_status === "accepted" && row) await createCandidateEvent(row);
     await Promise.all([loadDocuments(), loadStats()]);
@@ -226,9 +268,8 @@
       <div class="detail-body">${escapeHtml(row.body_text || "暂无正文摘要。")}</div>
       <div class="document-actions">
         ${url ? `<a class="button secondary" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">打开原始页面 ↗</a>` : ""}
-        <button data-dialog-action="accepted" data-id="${escapeHtml(row.id)}">采纳</button>
-        <button data-dialog-action="needs_review" data-id="${escapeHtml(row.id)}" class="warning">待核验</button>
-        <button data-dialog-action="ignored" data-id="${escapeHtml(row.id)}" class="danger">忽略</button>
+        <button data-dialog-action="accepted" data-id="${escapeHtml(row.id)}">采纳并进入预览</button>
+        <button data-dialog-action="ignored" data-id="${escapeHtml(row.id)}" class="danger">不采纳</button>
       </div>`;
     $("documentDialog").showModal();
   }
@@ -242,8 +283,7 @@
         <h3>${escapeHtml(row.title)}</h3><p>${escapeHtml(row.summary || row.theme || "暂无摘要")}</p>
         <div class="evidence-count">${row.event_evidence?.length || 0} 条证据</div>
         <div class="event-actions">
-          ${row.status === "pending" ? '<button data-event-preview>生成看板预览</button>' : ""}
-          ${row.status === "pending" ? '<button data-action="needs_evidence" class="warning">证据不足</button><button data-action="rejected" class="danger">驳回</button>' : ""}
+          ${row.status === "pending" ? '<button data-event-preview>打开拆解预览</button>' : ""}
           ${row.status === "approved" ? '<button data-event-preview class="secondary">查看已发布画面</button>' : ""}
         </div>
       </article>`).join("") : '<div class="empty">当前没有事件记录</div>';
@@ -260,6 +300,7 @@
         <h2>${escapeHtml(row.title)}</h2>
         <p>${escapeHtml(row.summary || "暂无摘要")}</p>
         <div class="preview-section"><strong>主题判断</strong><span>${escapeHtml(row.theme || "待补充")}</span></div>
+        <div class="preview-section"><strong>动作与渠道</strong><span>${escapeHtml([...(row.actions || []), ...(row.channels || [])].join(" · ") || "待补充")}</span></div>
         <div class="preview-section"><strong>核心策略</strong><span>${escapeHtml(row.core_strategy || row.purpose || "待人工补充")}</span></div>
         <div class="preview-section"><strong>证据来源</strong>${evidence.length ? evidence.map(item => {
           const doc = item.raw_documents || {};
@@ -267,10 +308,10 @@
           return `<span>${escapeHtml(doc.sources?.name || "未知来源")} · ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(doc.title || "打开原文")} ↗</a>` : escapeHtml(doc.title || "原文")}</span>`;
         }).join("") : "<span>暂无关联证据</span>"}</div>
       </article>
-      <div class="preview-warning">这是最终公开画面的数据预览。确认后才会写入公开看板；如内容不完整，请关闭并标记“证据不足”。</div>
+      <div class="preview-warning">这是人工采纳后自动生成的结构化预览。确认内容与证据无误后，才会写入公开看板。</div>
       <div class="document-actions">
         ${row.status !== "approved" ? `<button data-confirm-publish data-id="${escapeHtml(row.id)}">确认发布到看板</button>` : '<span class="published-badge">已发布到公开看板</span>'}
-        <button data-close-preview class="secondary">返回审核</button>
+        <button data-close-preview class="secondary">暂不发布</button>
       </div>`;
     $("eventPreviewDialog").showModal();
   }
@@ -315,21 +356,22 @@
   async function activateView(view) {
     activeView = view;
     document.querySelectorAll(".primary-tabs button").forEach(button => button.classList.toggle("active", button.dataset.view === view));
-    $("documentView").hidden = !["inbox", "accepted"].includes(view);
-    $("eventView").hidden = view !== "events";
+    $("documentView").hidden = !["inbox", "review"].includes(view);
+    $("eventView").hidden = view !== "preview";
     $("sourceView").hidden = view !== "sources";
     $("statsGrid").hidden = view === "sources";
-    const titles = { inbox: "采集收件箱", accepted: "已采纳资料", events: "事件审核", sources: "信息源管理" };
+    $("preferenceNote").hidden = view === "sources";
+    const titles = { inbox: "采集池", review: "人工审核", preview: "看板预览", sources: "信息源管理" };
     $("workspaceTitle").textContent = titles[view];
-    if (view === "accepted") {
-      $("documentStatus").value = "accepted";
-      $("documentStatus").disabled = true;
+    if (view === "inbox") {
+      $("documentStatus").value = "all";
+      $("queueHint").textContent = "这里保留最近采集结果；进入人工审核后再做采纳或不采纳选择。";
       await loadDocuments();
-    } else if (view === "inbox") {
-      $("documentStatus").disabled = false;
-      if ($("documentStatus").value === "accepted") $("documentStatus").value = "new";
+    } else if (view === "review") {
+      $("documentStatus").value = "reviewable";
+      $("queueHint").textContent = "采纳后自动进入看板预览；不采纳则进入不采纳仓库，并形成一条偏好信号。";
       await loadDocuments();
-    } else if (view === "events") {
+    } else if (view === "preview") {
       await loadQueue();
     } else {
       renderSources();

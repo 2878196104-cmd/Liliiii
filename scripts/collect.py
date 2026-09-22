@@ -38,6 +38,7 @@ ACTION_TERMS = {
     "战略", "渠道", "用户", "消费者", "销量", "营收", "融资", "营销", "案例", "新品", "展会", "ai",
 }
 NOISE_TERMS = {"招聘", "招标", "联系我们", "隐私政策", "用户协议", "登录", "注册", "下载app"}
+PREFERENCE_PROFILE = {"terms": {}, "sources": {}, "decisions": 0}
 
 
 def fetch_bytes(url: str) -> bytes:
@@ -79,6 +80,43 @@ def xml_text(node, names):
 def clean(value: str) -> str:
     value = re.sub(r"<[^>]+>", " ", value or "")
     return re.sub(r"\s+", " ", html.unescape(value)).strip()
+
+
+def load_review_preferences():
+    """Build a small, auditable preference profile from explicit human decisions only."""
+    rows = supabase(
+        "raw_documents?select=processing_status,raw_payload,sources(name)"
+        "&processing_status=in.(accepted,ignored)&limit=1000"
+    ) or []
+    profile = {"terms": {}, "sources": {}, "decisions": 0}
+    for row in rows:
+        feedback = (row.get("raw_payload") or {}).get("review_feedback") or {}
+        decision = feedback.get("decision")
+        if decision not in {"accepted", "ignored"}:
+            continue
+        profile["decisions"] += 1
+        delta = 2.0 if decision == "accepted" else -1.5
+        features = feedback.get("features") or {}
+        for term in set((features.get("topics") or []) + (features.get("values") or [])):
+            profile["terms"][term] = profile["terms"].get(term, 0) + delta
+        source_name = feedback.get("source") or (row.get("sources") or {}).get("name")
+        if source_name:
+            profile["sources"][source_name] = profile["sources"].get(source_name, 0) + delta
+    return profile
+
+
+def preference_adjustment(source, haystack):
+    if not PREFERENCE_PROFILE["decisions"]:
+        return 0, []
+    signals = []
+    value = 0.0
+    for term, weight in PREFERENCE_PROFILE["terms"].items():
+        if term.lower() in haystack:
+            value += weight
+            signals.append(term)
+    source_weight = PREFERENCE_PROFILE["sources"].get(source.get("name"), 0)
+    value += source_weight
+    return max(-15, min(20, round(value))), sorted(signals)
 
 
 def normalized_date(value: str | None):
@@ -128,7 +166,8 @@ def score_item(source, item):
             pass
 
     penalty = 30 if noise_hits else 0
-    score = max(0, min(100, topic_score + value_score + trust_score + completeness_score + freshness_score - penalty))
+    preference_score, preference_hits = preference_adjustment(source, haystack)
+    score = max(0, min(100, topic_score + value_score + trust_score + completeness_score + freshness_score + preference_score - penalty))
     status = "new" if score >= 60 else "needs_review" if score >= 45 else "ignored"
     return {
         "score": score,
@@ -142,9 +181,12 @@ def score_item(source, item):
             "source_trust": trust_score,
             "completeness": completeness_score,
             "freshness": freshness_score,
+            "human_preference": preference_score,
             "penalty": penalty,
         },
-        "version": "prefilter-v1",
+        "preference_hits": preference_hits,
+        "preference_decisions": PREFERENCE_PROFILE["decisions"],
+        "version": "prefilter-v2-human-feedback",
     }
 
 
@@ -468,6 +510,7 @@ def backfill_accepted_events():
 
 
 def main():
+    global PREFERENCE_PROFILE
     if not SUPABASE_URL or not SERVICE_KEY:
         raise SystemExit("SUPABASE_URL and SUPABASE_SECRET_KEY are required")
     if not SOURCE_FILE.exists():
@@ -490,6 +533,14 @@ def main():
             "detail": detail,
         }, ensure_ascii=False), file=sys.stderr)
         raise SystemExit(1)
+
+    PREFERENCE_PROFILE = load_review_preferences()
+    print(json.dumps({
+        "preference_learning": "active" if PREFERENCE_PROFILE["decisions"] else "waiting_for_human_decisions",
+        "human_decisions": PREFERENCE_PROFILE["decisions"],
+        "learned_terms": len(PREFERENCE_PROFILE["terms"]),
+        "learned_sources": len(PREFERENCE_PROFILE["sources"]),
+    }, ensure_ascii=False))
 
     inserted = skipped = failed = successful_sources = not_due_sources = paused_sources = 0
     for source in sources:

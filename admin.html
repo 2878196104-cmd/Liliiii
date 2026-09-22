@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Monthly Know · 管理者采集后台</title>
-  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="admin.css?v=20260922-3">
 </head>
 <body>
   <main class="admin-shell">
@@ -39,20 +39,21 @@
       <div class="workspace-head">
         <div>
           <span class="eyebrow">CONTROL ROOM</span>
-          <h2 id="workspaceTitle">采集收件箱</h2>
+          <h2 id="workspaceTitle">采集池</h2>
           <p id="workspaceSummary">正在读取数据库……</p>
         </div>
         <button id="logoutButton" class="button secondary">退出登录</button>
       </div>
 
       <nav class="primary-tabs" aria-label="后台工作区">
-        <button data-view="inbox" class="active"><span>01</span>采集收件箱</button>
-        <button data-view="accepted"><span>02</span>已采纳资料</button>
-        <button data-view="events"><span>03</span>事件审核</button>
+        <button data-view="inbox" class="active"><span>01</span>采集</button>
+        <button data-view="review"><span>02</span>人工审核</button>
+        <button data-view="preview"><span>03</span>看板预览</button>
         <button data-view="sources"><span>04</span>信息源管理</button>
       </nav>
 
       <section class="stats-grid" id="statsGrid" aria-label="采集概览"></section>
+      <p class="preference-note" id="preferenceNote"></p>
 
       <section id="documentView">
         <div class="toolbar">
@@ -62,10 +63,9 @@
           </div>
           <label>处理状态
             <select id="documentStatus">
-              <option value="new">待判断</option>
-              <option value="needs_review">待核验</option>
+              <option value="reviewable">待审核</option>
               <option value="accepted">已采纳</option>
-              <option value="ignored">已忽略</option>
+              <option value="ignored">不采纳仓库</option>
               <option value="all">全部</option>
             </select>
           </label>
@@ -76,19 +76,17 @@
         </div>
         <div class="queue-head">
           <div><strong id="documentCount">0</strong><span> 条当前结果</span></div>
-          <p>采纳只会进入证据资料库，不会直接发布到公开看板。</p>
+          <p id="queueHint">采集结果在人工审核后分流：采纳进入预览，不采纳进入独立仓库。</p>
         </div>
         <div id="documentQueue" class="document-queue"></div>
       </section>
 
       <section id="eventView" hidden>
         <div class="filters event-filters">
-          <button data-status="pending" class="active">待审核</button>
-          <button data-status="needs_evidence">证据不足</button>
+          <button data-status="pending" class="active">待预览</button>
           <button data-status="approved">已发布</button>
-          <button data-status="rejected">已驳回</button>
         </div>
-        <p class="workflow-note">事件先生成看板预览；只有在预览中确认发布后，才会进入公开研究看板。</p>
+        <p class="workflow-note">人工采纳后自动生成结构化预览；在预览中确认无误，才会进入公开研究看板。</p>
         <div id="eventQueue" class="event-queue"></div>
       </section>
 
@@ -113,6 +111,6 @@
   </dialog>
 
   <script src="runtime-config.js"></script>
-  <script src="admin.js"></script>
+  <script src="admin.js?v=20260922-3"></script>
 </body>
 </html>

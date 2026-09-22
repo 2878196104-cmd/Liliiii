@@ -29,7 +29,7 @@ button:hover,.button:hover{transform:translateY(-1px);filter:brightness(.96)}
 .primary-tabs button{justify-content:flex-start;gap:9px;background:transparent;color:#60665f}
 .primary-tabs button span{font-size:11px;opacity:.58}
 .primary-tabs button.active{background:var(--paper);color:var(--green);box-shadow:0 4px 16px rgba(50,57,52,.08)}
-.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0 22px}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 12px}
 .stats-grid article{padding:17px;border:1px solid var(--line);border-radius:15px;background:#fff}
 .stats-grid small,.stats-grid span{display:block;color:var(--muted);font-size:11px}
 .stats-grid strong{display:block;font-size:30px;margin:4px 0;color:var(--green)}
@@ -91,4 +91,5 @@ input,select{border:1px solid #cbdadd;border-radius:14px;background:#f8fbfb}.log
 .stats-grid article{border:0;border-radius:22px;background:linear-gradient(145deg,#dceef1,#c9e4e8);min-height:130px}.stats-grid article:nth-child(2n){background:linear-gradient(145deg,#eef3df,#dce8bf)}.stats-grid strong{color:#244951}
 .toolbar{border:0;border-radius:22px;background:#e0eaeb;padding:18px}.document-card,.event-card,.source-card{border:0;border-radius:22px;background:#edf4f5}.document-card:nth-child(2n),.event-card:nth-child(2n),.source-card:nth-child(3n+2){background:#eef3e2}.status-pill{border-radius:999px}.status-accepted{background:#d7e7c3;color:#3d5d43}.status-needs_review{background:#f0e2cb;color:#785633}.score-reason{border-radius:14px;background:#dfeaec}
 .workflow-note{border:0;border-radius:16px;background:#edf1dd;color:#5d684b}.filters button{background:#dce6e7}.filters button.active{background:#202628}.document-dialog{border:0;border-radius:28px;background:#eff5f5}.dashboard-preview-card{border:0;border-radius:24px;background:linear-gradient(145deg,#dceff2,#edf3df)}.empty{border-color:#c5d6d9;border-radius:22px}
+.preference-note{margin:0 0 24px;padding:13px 18px;border-radius:16px;background:#e8f0e5;color:#51665b;font-size:12px;line-height:1.65}
 @media(max-width:640px){.admin-shell{margin:8px;padding:22px 14px 42px;border-radius:26px}.top-links{margin-top:16px;flex-wrap:wrap}.topbar h1{font-size:38px}.primary-tabs{border-radius:22px}}
