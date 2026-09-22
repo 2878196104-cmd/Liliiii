@@ -8,6 +8,7 @@
   let sourceRows = [];
   let sourceConfig = [];
   let statsRows = [];
+  let events = [];
 
   const statusLabels = {
     new: "待判断",
@@ -82,7 +83,7 @@
   }
 
   async function loadStats() {
-    statsRows = await api("/rest/v1/raw_documents?select=processing_status&order=collected_at.desc&limit=1000");
+    statsRows = await api("/rest/v1/raw_documents?select=source_id,processing_status,raw_payload&order=collected_at.desc&limit=1000");
     const counts = statsRows.reduce((map, row) => {
       map[row.processing_status || "new"] = (map[row.processing_status || "new"] || 0) + 1;
       return map;
@@ -106,7 +107,7 @@
   async function loadDocuments() {
     const status = currentDocumentStatus();
     const sourceId = $("sourceFilter").value;
-    let path = "/rest/v1/raw_documents?select=id,source_id,title,body_text,canonical_url,published_at,collected_at,processing_status,kind,sources(name,platform)&order=collected_at.desc&limit=250";
+    let path = "/rest/v1/raw_documents?select=id,source_id,title,body_text,canonical_url,published_at,collected_at,processing_status,kind,raw_payload,sources(name,platform,trust_level)&order=collected_at.desc&limit=250";
     if (status !== "all") path += `&processing_status=eq.${encodeURIComponent(status)}`;
     if (sourceId !== "all") path += `&source_id=eq.${encodeURIComponent(sourceId)}`;
     documents = await api(path);
@@ -135,7 +136,8 @@
           <div class="document-meta">
             <span class="status-pill status-${escapeHtml(row.processing_status || "new")}">${escapeHtml(statusLabels[row.processing_status] || row.processing_status || "待判断")}</span>
             <span>${escapeHtml(row.sources?.name || "未知来源")}</span>
-            <span>${escapeHtml(row.sources?.platform || row.kind || "公开网页")}</span>
+          <span>${escapeHtml(row.sources?.platform || row.kind || "公开网页")}</span>
+          <span>初筛 ${escapeHtml(row.raw_payload?.prefilter?.score ?? "—")} 分</span>
             <span>发布 ${escapeHtml(formatDate(row.published_at))}</span>
             <span>采集 ${escapeHtml(formatDate(row.collected_at, true))}</span>
           </div>
@@ -154,12 +156,56 @@
     }).join("") : '<div class="empty">当前筛选条件下没有资料</div>';
   }
 
+  function inferEventType(row) {
+    const text = `${row.title || ""} ${row.body_text || ""}`;
+    if (/联名|合作/.test(text)) return "品牌联名";
+    if (/新品|发布|推出|上市/.test(text)) return "新品发布";
+    if (/门店|开业|开店/.test(text)) return "渠道动作";
+    if (/报告|趋势|数据/.test(text)) return "行业趋势";
+    if (/营销|广告|案例| campaign/i.test(text)) return "营销案例";
+    return "行业动态";
+  }
+
+  async function createCandidateEvent(row) {
+    const existing = await api(`/rest/v1/event_evidence?select=event_id&document_id=eq.${encodeURIComponent(row.id)}&limit=1`);
+    if (existing.length) return existing[0].event_id;
+    const score = Number(row.raw_payload?.prefilter?.score || 50);
+    const created = await api("/rest/v1/events", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        title: row.title,
+        event_type: inferEventType(row),
+        theme: row.sources?.name || "待归类",
+        summary: excerpt(row.body_text, 360) || "正文摘要待补充",
+        happened_at: row.published_at,
+        status: "pending",
+        confidence: Math.max(0, Math.min(1, score / 100)),
+        created_by: "admin-accepted-document"
+      })
+    });
+    const event = created[0];
+    await api("/rest/v1/event_evidence", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        event_id: event.id,
+        document_id: row.id,
+        quote_text: excerpt(row.body_text, 500),
+        evidence_role: "primary"
+      })
+    });
+    return event.id;
+  }
+
   async function updateDocumentStatus(id, processing_status) {
+    const row = documents.find(item => item.id === id);
     await api(`/rest/v1/raw_documents?id=eq.${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({ processing_status })
     });
+    if (processing_status === "accepted" && row) await createCandidateEvent(row);
     await Promise.all([loadDocuments(), loadStats()]);
   }
 
@@ -174,7 +220,9 @@
         <span>${escapeHtml(statusLabels[row.processing_status] || row.processing_status)}</span>
         <span>发布：${escapeHtml(formatDate(row.published_at))}</span>
         <span>采集：${escapeHtml(formatDate(row.collected_at, true))}</span>
+        <span>机器初筛：${escapeHtml(row.raw_payload?.prefilter?.score ?? "—")} 分</span>
       </div>
+      ${row.raw_payload?.prefilter ? `<div class="score-reason">命中主题：${escapeHtml((row.raw_payload.prefilter.topic_hits || []).join("、") || "无")} · 价值信号：${escapeHtml((row.raw_payload.prefilter.value_hits || []).join("、") || "无")}</div>` : ""}
       <div class="detail-body">${escapeHtml(row.body_text || "暂无正文摘要。")}</div>
       <div class="document-actions">
         ${url ? `<a class="button secondary" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">打开原始页面 ↗</a>` : ""}
@@ -186,16 +234,45 @@
   }
 
   async function loadQueue() {
-    const rows = await api(`/rest/v1/events?select=id,title,event_type,theme,summary,happened_at,status,confidence,brands(name)&status=eq.${activeEventStatus}&order=created_at.desc&limit=100`);
-    $("workspaceSummary").textContent = `${rows.length} 条事件 · 当前状态：${activeEventStatus}`;
-    $("eventQueue").innerHTML = rows.length ? rows.map(row => `
+    events = await api(`/rest/v1/events?select=id,title,event_type,theme,summary,purpose,product_strategy,core_strategy,actions,channels,happened_at,status,confidence,brands(name),event_evidence(document_id,quote_text,raw_documents(title,canonical_url,body_text,sources(name)))&status=eq.${activeEventStatus}&order=created_at.desc&limit=100`);
+    $("workspaceSummary").textContent = `${events.length} 条事件 · 当前状态：${activeEventStatus}`;
+    $("eventQueue").innerHTML = events.length ? events.map(row => `
       <article class="event-card" data-id="${escapeHtml(row.id)}">
         <div class="event-meta"><span>${escapeHtml(row.brands?.name || "待归类")}</span><span>${escapeHtml(row.event_type || "未分类")}</span><span>${escapeHtml(formatDate(row.happened_at))}</span><span>置信度 ${escapeHtml(row.confidence ?? "—")}</span></div>
         <h3>${escapeHtml(row.title)}</h3><p>${escapeHtml(row.summary || row.theme || "暂无摘要")}</p>
+        <div class="evidence-count">${row.event_evidence?.length || 0} 条证据</div>
         <div class="event-actions">
-          <button data-action="approved">批准发布</button><button data-action="needs_evidence" class="warning">证据不足</button><button data-action="rejected" class="danger">驳回</button>
+          ${row.status === "pending" ? '<button data-event-preview>生成看板预览</button>' : ""}
+          ${row.status === "pending" ? '<button data-action="needs_evidence" class="warning">证据不足</button><button data-action="rejected" class="danger">驳回</button>' : ""}
+          ${row.status === "approved" ? '<button data-event-preview class="secondary">查看已发布画面</button>' : ""}
         </div>
       </article>`).join("") : '<div class="empty">当前没有事件记录</div>';
+  }
+
+  function openEventPreview(id) {
+    const row = events.find(item => item.id === id);
+    if (!row) return;
+    const evidence = row.event_evidence || [];
+    $("eventPreview").innerHTML = `
+      <span class="eyebrow">DASHBOARD PREVIEW · 看板发布预览</span>
+      <article class="dashboard-preview-card">
+        <div class="preview-meta"><span>${escapeHtml(row.brands?.name || "待归类")}</span><span>${escapeHtml(row.event_type || "行业动态")}</span><span>${escapeHtml(formatDate(row.happened_at))}</span></div>
+        <h2>${escapeHtml(row.title)}</h2>
+        <p>${escapeHtml(row.summary || "暂无摘要")}</p>
+        <div class="preview-section"><strong>主题判断</strong><span>${escapeHtml(row.theme || "待补充")}</span></div>
+        <div class="preview-section"><strong>核心策略</strong><span>${escapeHtml(row.core_strategy || row.purpose || "待人工补充")}</span></div>
+        <div class="preview-section"><strong>证据来源</strong>${evidence.length ? evidence.map(item => {
+          const doc = item.raw_documents || {};
+          const url = safeUrl(doc.canonical_url);
+          return `<span>${escapeHtml(doc.sources?.name || "未知来源")} · ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(doc.title || "打开原文")} ↗</a>` : escapeHtml(doc.title || "原文")}</span>`;
+        }).join("") : "<span>暂无关联证据</span>"}</div>
+      </article>
+      <div class="preview-warning">这是最终公开画面的数据预览。确认后才会写入公开看板；如内容不完整，请关闭并标记“证据不足”。</div>
+      <div class="document-actions">
+        ${row.status !== "approved" ? `<button data-confirm-publish data-id="${escapeHtml(row.id)}">确认发布到看板</button>` : '<span class="published-badge">已发布到公开看板</span>'}
+        <button data-close-preview class="secondary">返回审核</button>
+      </div>`;
+    $("eventPreviewDialog").showModal();
   }
 
   async function updateEventStatus(id, status) {
@@ -219,12 +296,18 @@
     $("sourceGrid").innerHTML = rows.map(item => {
       const db = item.database;
       const url = safeUrl(item.entry_url || item.base_url);
-      const state = !item.enabled ? "已暂停" : db ? "已接通" : "待适配";
+      const effectiveEnabled = db?.enabled ?? item.enabled;
+      const state = !effectiveEnabled ? "已暂停" : db ? "已接通" : "待适配";
+      const sourceStats = statsRows.filter(row => row.source_id === db?.id);
+      const useful = sourceStats.filter(row => ["new", "needs_review", "accepted"].includes(row.processing_status)).length;
+      const rate = sourceStats.length ? Math.round(useful / sourceStats.length * 100) : 0;
       return `<article class="source-card">
         <div class="source-card-head"><span class="status-pill ${db ? "status-accepted" : "status-needs_review"}">${state}</span><small>${escapeHtml(item.platform || "其他来源")}</small></div>
         <h3>${escapeHtml(item.name)}</h3>
         <p>${db?.last_collected_at ? "最近成功：" + escapeHtml(formatDate(db.last_collected_at, true)) : "尚无成功采集时间"}</p>
-        <div class="source-foot"><span>每 ${escapeHtml(item.collection_interval_minutes || 360)} 分钟</span>${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">打开来源 ↗</a>` : ""}</div>
+        <p class="source-quality">近批资料 ${sourceStats.length} 条 · 初筛保留率 ${rate}%</p>
+        <div class="source-foot"><span>每 ${escapeHtml(db?.collection_interval_minutes || item.collection_interval_minutes || 360)} 分钟</span>${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">打开来源 ↗</a>` : ""}</div>
+        ${db ? `<button class="source-toggle secondary" data-source-id="${escapeHtml(db.id)}" data-source-enabled="${effectiveEnabled ? "false" : "true"}">${effectiveEnabled ? "暂停采集" : "恢复采集"}</button>` : ""}
       </article>`;
     }).join("");
   }
@@ -300,9 +383,30 @@
   $("closeDocumentDialog").addEventListener("click", () => $("documentDialog").close());
 
   $("eventQueue").addEventListener("click", event => {
-    const action = event.target.closest("[data-action]")?.dataset.action;
     const card = event.target.closest("[data-id]");
+    if (card && event.target.closest("[data-event-preview]")) return openEventPreview(card.dataset.id);
+    const action = event.target.closest("[data-action]")?.dataset.action;
     if (action && card) updateEventStatus(card.dataset.id, action).catch(showError);
+  });
+  $("eventPreview").addEventListener("click", event => {
+    const publish = event.target.closest("[data-confirm-publish]");
+    if (publish) {
+      updateEventStatus(publish.dataset.id, "approved").then(() => {
+        $("eventPreviewDialog").close();
+        alert("已发布到公开研究看板。");
+      }).catch(showError);
+    }
+    if (event.target.closest("[data-close-preview]")) $("eventPreviewDialog").close();
+  });
+  $("closeEventPreview").addEventListener("click", () => $("eventPreviewDialog").close());
+
+  $("sourceGrid").addEventListener("click", event => {
+    const button = event.target.closest("[data-source-id]");
+    if (!button) return;
+    api(`/rest/v1/sources?id=eq.${encodeURIComponent(button.dataset.sourceId)}`, {
+      method: "PATCH", headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ enabled: button.dataset.sourceEnabled === "true" })
+    }).then(() => loadSourceData()).then(renderSources).catch(showError);
   });
   document.querySelector(".event-filters").addEventListener("click", event => {
     const button = event.target.closest("[data-status]");
