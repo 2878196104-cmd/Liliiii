@@ -3,37 +3,105 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Monthly Know · 审核台</title>
+  <title>Monthly Know · 管理者采集后台</title>
   <link rel="stylesheet" href="admin.css">
 </head>
 <body>
   <main class="admin-shell">
-    <header>
-      <div><small>MONTHLY KNOW</small><h1>情报审核台</h1><p>审核采集和结构化后的事件。只有“已批准”内容会进入公开看板。</p></div>
-      <a href="skill-output-dashboard.html">返回看板 ↗</a>
+    <header class="topbar">
+      <div>
+        <small>MONTHLY KNOW · INTELLIGENCE OPERATIONS</small>
+        <h1>管理者采集后台</h1>
+        <p>统一管理信息源、核验原始资料，并控制哪些内容进入研究体系。</p>
+      </div>
+      <a class="back-link" href="skill-output-dashboard.html">返回研究看板 ↗</a>
     </header>
 
-    <section class="login-panel" id="loginPanel">
-      <h2>管理员登录</h2>
+    <section class="login-panel surface" id="loginPanel">
+      <div class="login-copy">
+        <span class="eyebrow">ADMIN ACCESS</span>
+        <h2>管理员登录</h2>
+        <p>使用 Supabase Auth 管理员账号。公开访问者无法读取原始采集内容。</p>
+      </div>
       <form id="loginForm">
         <label>邮箱<input id="email" type="email" autocomplete="username" required></label>
         <label>密码<input id="password" type="password" autocomplete="current-password" required></label>
-        <button type="submit">登录</button>
+        <button type="submit">进入后台</button>
       </form>
       <p class="status" id="loginStatus"></p>
     </section>
 
     <section class="workspace" id="workspace" hidden>
-      <div class="workspace-head"><div><h2>待审核事件</h2><p id="queueSummary">正在读取……</p></div><button id="logoutButton" class="secondary">退出</button></div>
-      <div class="filters">
-        <button data-status="pending" class="active">待审核</button>
-        <button data-status="needs_evidence">证据不足</button>
-        <button data-status="approved">已批准</button>
-        <button data-status="rejected">已驳回</button>
+      <div class="workspace-head">
+        <div>
+          <span class="eyebrow">CONTROL ROOM</span>
+          <h2 id="workspaceTitle">采集收件箱</h2>
+          <p id="workspaceSummary">正在读取数据库……</p>
+        </div>
+        <button id="logoutButton" class="button secondary">退出登录</button>
       </div>
-      <div id="eventQueue" class="event-queue"></div>
+
+      <nav class="primary-tabs" aria-label="后台工作区">
+        <button data-view="inbox" class="active"><span>01</span>采集收件箱</button>
+        <button data-view="accepted"><span>02</span>已采纳资料</button>
+        <button data-view="events"><span>03</span>事件审核</button>
+        <button data-view="sources"><span>04</span>信息源管理</button>
+      </nav>
+
+      <section class="stats-grid" id="statsGrid" aria-label="采集概览"></section>
+
+      <section id="documentView">
+        <div class="toolbar">
+          <div class="search-box">
+            <label for="documentSearch">检索当前资料</label>
+            <input id="documentSearch" type="search" placeholder="搜索标题、正文或来源">
+          </div>
+          <label>处理状态
+            <select id="documentStatus">
+              <option value="new">待判断</option>
+              <option value="needs_review">待核验</option>
+              <option value="accepted">已采纳</option>
+              <option value="ignored">已忽略</option>
+              <option value="all">全部</option>
+            </select>
+          </label>
+          <label>信息源
+            <select id="sourceFilter"><option value="all">全部来源</option></select>
+          </label>
+          <button id="refreshDocuments" class="button secondary">刷新</button>
+        </div>
+        <div class="queue-head">
+          <div><strong id="documentCount">0</strong><span> 条当前结果</span></div>
+          <p>采纳只会进入证据资料库，不会直接发布到公开看板。</p>
+        </div>
+        <div id="documentQueue" class="document-queue"></div>
+      </section>
+
+      <section id="eventView" hidden>
+        <div class="filters event-filters">
+          <button data-status="pending" class="active">待审核</button>
+          <button data-status="needs_evidence">证据不足</button>
+          <button data-status="approved">已批准</button>
+          <button data-status="rejected">已驳回</button>
+        </div>
+        <div id="eventQueue" class="event-queue"></div>
+      </section>
+
+      <section id="sourceView" hidden>
+        <div class="queue-head">
+          <div><strong id="sourceCount">0</strong><span> 个配置来源</span></div>
+          <p>“待适配”表示已在配置中登记，但尚未成功写入来源状态。</p>
+        </div>
+        <div id="sourceGrid" class="source-grid"></div>
+      </section>
     </section>
   </main>
+
+  <dialog id="documentDialog" class="document-dialog">
+    <button class="dialog-close" id="closeDocumentDialog" aria-label="关闭">×</button>
+    <div id="documentDetail"></div>
+  </dialog>
+
   <script src="runtime-config.js"></script>
   <script src="admin.js"></script>
 </body>
