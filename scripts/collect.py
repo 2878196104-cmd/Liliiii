@@ -401,6 +401,15 @@ def rescore_existing():
     return changed
 
 
+def status_snapshot():
+    rows = supabase("raw_documents?select=processing_status&limit=1000") or []
+    counts = {}
+    for row in rows:
+        status = row.get("processing_status") or "new"
+        counts[status] = counts.get(status, 0) + 1
+    return {"total": len(rows), **counts}
+
+
 def main():
     if not SUPABASE_URL or not SERVICE_KEY:
         raise SystemExit("SUPABASE_URL and SUPABASE_SECRET_KEY are required")
@@ -498,6 +507,7 @@ def main():
             }, ensure_ascii=False), file=sys.stderr)
 
     rescored = rescore_existing()
+    queue_snapshot = status_snapshot()
     print(json.dumps({
         "inserted": inserted,
         "skipped": skipped,
@@ -506,6 +516,7 @@ def main():
         "not_due_sources": not_due_sources,
         "paused_sources": paused_sources,
         "rescored_existing": rescored,
+        "queue_snapshot": queue_snapshot,
     }, ensure_ascii=False))
     # A run is healthy when registered sources are simply waiting for their own interval.
     if sources and successful_sources == 0 and not_due_sources == 0 and paused_sources == 0:
