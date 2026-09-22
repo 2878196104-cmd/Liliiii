@@ -425,14 +425,16 @@ def main():
         }, ensure_ascii=False), file=sys.stderr)
         raise SystemExit(1)
 
-    inserted = skipped = failed = successful_sources = 0
+    inserted = skipped = failed = successful_sources = not_due_sources = paused_sources = 0
     for source in sources:
         try:
             database_source = prepare_source(source)
             if not database_source.get("enabled", True):
+                paused_sources += 1
                 print(json.dumps({"source": source["name"], "status": "paused"}, ensure_ascii=False))
                 continue
             if not is_due(database_source):
+                not_due_sources += 1
                 print(json.dumps({"source": source["name"], "status": "not_due"}, ensure_ascii=False))
                 continue
             items = collect_source(source)
@@ -501,9 +503,12 @@ def main():
         "skipped": skipped,
         "successful_sources": successful_sources,
         "failed_sources": failed,
+        "not_due_sources": not_due_sources,
+        "paused_sources": paused_sources,
         "rescored_existing": rescored,
     }, ensure_ascii=False))
-    if sources and successful_sources == 0:
+    # A run is healthy when registered sources are simply waiting for their own interval.
+    if sources and successful_sources == 0 and not_due_sources == 0 and paused_sources == 0:
         raise SystemExit(1)
 
 
