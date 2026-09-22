@@ -161,11 +161,9 @@
   let activeReportMonth=recentMonths[0];
   const monthLabel=value=>value==='待归档'?'待归档':`${Number(value.slice(5,7))}月月报`;
   const channelGroups=[
-    {key:'ecommerce',label:'电商',pattern:/电商|天猫|京东|618|双11|双十一|直播|小程序|即时零售/},
-    {key:'social',label:'社媒',pattern:/社媒|小红书|微博|抖音|短视频|达人|官号|话题|内容/},
-    {key:'retail',label:'门店 / 新零售',pattern:/门店|新零售|经销|终端|卖场|体验店|居然之家|红星美凯龙/},
-    {key:'event',label:'展会 / 活动',pattern:/展会|发布会|私享会|论坛|博览会|峰会|线下活动|设计周/},
-    {key:'media',label:'媒体 / 品牌内容',pattern:/媒体|PR|广告片|品牌影片|报道|专访|TVC|纪录片/}
+    {key:'ecommerce',label:'电商 IP',pattern:/电商|天猫|淘宝|京东|618|双11|双十一|旗舰店|平台日|平台新品|新品季|大促|店铺促销|即时零售/},
+    {key:'retail',label:'新零售',pattern:/门店|新零售|经销|终端|卖场|体验店|居然之家|红星美凯龙|展会|发布会|私享会|论坛|博览会|峰会|线下活动|设计周|展馆|会展中心/},
+    {key:'social',label:'社媒传播',pattern:/社媒|小红书|微博|抖音|短视频|达人|官号|话题|内容|直播|品牌视频|广告片|品牌影片|TVC|纪录片/}
   ];
   const eventText=e=>[e.event,e.type,e.theme,e.purpose,e.coreStrategy,e.productStrategy,...(e.actions||[]),...(e.channels||[]),...(e.materials||[])].filter(Boolean).join(' ');
   const eventChannels=e=>channelGroups.filter(group=>group.pattern.test(eventText(e))).map(group=>group.key);
@@ -207,7 +205,7 @@
       }).join('');
       return '<div class="channel-row"><button class="channel-brand" data-matrix-brand="'+safe(brand)+'"><span>重点竞品</span><strong>'+safe(brand)+'</strong><small>'+brandEvents.length+' 个案例</small></button>'+cells+'</div>';
     }).join('');
-    return '<section class="card panel monthly-matrix"><div class="monthly-section-head"><div><div class="section-index">02 / 竞品动作</div><h2 class="panel-title">品牌 × 渠道全景</h2><p>横向看同一品牌如何联动不同渠道，纵向比较竞品在同一渠道分别讲什么、怎么做。</p></div><span class="monthly-count-badge">'+brands.length+' 个品牌 · '+events.length+' 个案例</span></div><div class="channel-matrix-wrap"><div class="channel-matrix"><div class="channel-header"><span>重点竞品</span>'+channelGroups.map(group=>'<strong>'+group.label+'</strong>').join('')+'</div>'+rows+'</div></div><p class="note">每张卡片展示活动主题与一句话概览；同一活动跨渠道执行时会出现在对应的多个渠道中。“—”仅表示当前已发布资料尚未覆盖。</p></section>';
+    return '<section class="card panel monthly-matrix"><div class="monthly-section-head"><div><div class="section-index">02 / 竞品动作</div><h2 class="panel-title">品牌 × 渠道全景</h2><p>只保留三类关键动作：电商平台联动、线下新零售，以及社媒内容传播。</p></div><span class="monthly-count-badge">'+brands.length+' 个品牌 · '+events.length+' 个案例</span></div><div class="channel-matrix-wrap"><div class="channel-matrix"><div class="channel-header"><span>重点竞品</span>'+channelGroups.map(group=>'<strong>'+group.label+'</strong>').join('')+'</div>'+rows+'</div></div><p class="note">展会、发布会统一归入新零售；若同步直播或形成线上内容，也会同时进入社媒传播。京东、天猫的平台联动与店铺营销统一归入电商 IP。</p></section>';
   }
   const placements={
     '源氏木语':{label:'展会',x:19,y:65},

@@ -1,11 +1,12 @@
-/* Evidence-led brand configurations. Snapshot: 2026-09-18; window: 8/20–9/18. */
+/* Evidence-led brand configurations. Snapshot: 2026-09-22; window: 8/20–9/22. */
 window.monthlyCompetitorProfiles={
   '顾家家居':{
     sources:{
       invite:{name:'解锁松果沙发，把松弛感搬回家',url:'https://www.xiaohongshu.com/explore/6aa97200000000000b003fa3'},
       launch:{name:'松果沙发新品上市 特腰嘉宾惊喜现身',url:'https://www.xiaohongshu.com/explore/6aaaa3fb00000000260321c1'},
       recap:{name:'发布会集锦｜遇见松果沙发',url:'https://www.xiaohongshu.com/explore/6aab36b1000000002b0252f7'},
-      association:{name:'上海室内装饰协会｜顾家星选联合集采走访',url:'https://www.snzsxh.com/node/31976'}
+      association:{name:'上海室内装饰协会｜顾家星选联合集采走访',url:'https://www.snzsxh.com/node/31976'},
+      jdLaunch:{name:'京东家电家居｜9月闪电新品季',url:'https://www.ithome.com/1/000/247.htm'}
     },
     events:[{
       event:'松果沙发：电动沙发旗舰新品秋季私享会',date:'2026-09-16',type:'新品私享会',theme:'撑起松弛，果然出色',
@@ -37,6 +38,19 @@ window.monthlyCompetitorProfiles={
         ]},
         {key:'positioning',label:'整家产品解读',summary:'“顾家星选”面向装企提供定制＋软体的整家配套，而非孤立卖一件家具。',steps:[
           ['九大品类如何进入装企方案',['产品组成｜橱柜、衣柜、护墙、木门、沙发、软床、床垫、餐桌椅等九大品类纳入一体化方案。','定位解读｜自制品类与联合集采让品牌进入装修过程中的选品、采购与交付；工厂参观也成为面向合作方的品质展示。'],['association']]
+        ]}
+      ],materialPlacement:{}
+    },{
+      event:'京东闪电新品季：智能语音沙发平台首发',date:'2026-09-09',type:'电商平台 IP',theme:'重磅新品 · 全渠道首发',
+      purpose:'平台新品首发 / 电商转化 / 新品认知',productStrategy:'以智能语音沙发进入京东家电家居9月新品阵容，借平台新品频道、补贴与首发权益承接交易。',
+      coreStrategy:'把单一新品放进京东“闪电新品季”的平台趋势与流量场，以首发、补贴和新品权益缩短从看见到购买的路径。',actions:['京东平台新品IP','智能语音沙发首发','国家补贴与以旧换新','新品尖货1元抽'],channels:['京东','京东家电家居新品频道'],
+      result:'京东公开活动信息将顾家家居智能语音沙发列入9月集中上新的家居新品；品牌单品成交与曝光数据尚未披露。',source:'京东家电家居活动信息／IT之家',url:'https://www.ithome.com/1/000/247.htm',
+      sections:[
+        {key:'product',label:'电商 IP 动作',summary:'不是常规商品降价，而是借京东新品平台IP完成新品首发、权益打包与交易承接。',steps:[
+          ['顾家在平台活动里做了什么',['平台动作｜进入京东家电家居9月“闪电新品季”，与超千款家电家居新品集中上新。','主推产品｜公开活动信息点名顾家家居智能语音沙发；目前尚未取得可核验的具体SKU与完整功能参数。','交易承接｜活动统一配置国家补贴叠加以旧换新、新品尖货1元抽等权益；单品牌实际适用范围需以京东商品页为准。'],['jdLaunch'],'营销解读｜电商动作的价值不只是价格，而是平台新品IP同时提供趋势标签、首发曝光与购买权益。']
+        ]},
+        {key:'positioning',label:'产品定位战略解读',summary:'“智能语音沙发”借平台新品季进入智能家居叙事，但产品差异与用户反馈仍待商品级证据。',steps:[
+          ['目前能确认与不能确认的边界',['能确认｜顾家智能语音沙发被纳入京东9月家电家居集中上新名单。','不能确认｜公开活动稿未披露具体型号、语音能力边界、价格、销量及用户评价。','下一步核验｜补抓京东活动会场、顾家旗舰店商品页及活动期评价，判断平台曝光是否形成真实产品认知。'],['jdLaunch']]
         ]}
       ],materialPlacement:{}
     }]
