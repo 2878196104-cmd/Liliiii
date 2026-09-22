@@ -5,7 +5,7 @@
   document.querySelector('.eyebrow').textContent='MONTHLY NOTE';
   document.querySelector('.subhead').remove();
   document.querySelector('.coverage-note')?.remove();
-  const labels={home:'行业趋势',intelligence:'竞品动作',compare:'结论证据（输出层）',sources:'信息源库'};
+  const labels={home:'行业趋势',intelligence:'竞品分析',compare:'结论证据（输出层）',sources:'信息源库'};
   if(location.protocol==='file:'){const localSources=document.createElement('script');localSources.src='local-internal-sources.js';document.head.append(localSources);}
   Object.entries(labels).forEach(([key,label])=>document.querySelector('[data-page="'+key+'"]').textContent=label);
   document.querySelector('[data-page="case"]').hidden=true;
@@ -160,6 +160,49 @@
   });
   let activeReportMonth=recentMonths[0];
   const monthLabel=value=>value==='待归档'?'待归档':`${Number(value.slice(5,7))}月月报`;
+  const channelGroups=[
+    {key:'ecommerce',label:'电商',pattern:/电商|天猫|京东|618|双11|双十一|直播|小程序|即时零售/},
+    {key:'social',label:'社媒',pattern:/社媒|小红书|微博|抖音|短视频|达人|官号|话题|内容/},
+    {key:'retail',label:'门店 / 新零售',pattern:/门店|新零售|经销|终端|卖场|体验店|居然之家|红星美凯龙/},
+    {key:'event',label:'展会 / 活动',pattern:/展会|发布会|私享会|论坛|博览会|峰会|线下活动|设计周/},
+    {key:'media',label:'媒体 / 品牌内容',pattern:/媒体|PR|广告片|品牌影片|报道|专访|TVC|纪录片/}
+  ];
+  const eventText=e=>[e.event,e.type,e.theme,e.purpose,e.coreStrategy,e.productStrategy,...(e.actions||[]),...(e.channels||[]),...(e.materials||[])].filter(Boolean).join(' ');
+  const eventChannels=e=>channelGroups.filter(group=>group.pattern.test(eventText(e))).map(group=>group.key);
+  function buildIndustryInsights(events){
+    const monthCorpus=corpus.filter(item=>monthOf(item)===activeReportMonth);
+    const evidence=[...events.map(e=>({text:eventText(e),brand:e.brand})),...monthCorpus.map(item=>({text:[item.title,item.summary,...item.topics].join(' '),brand:item.source}))];
+    const candidates=[
+      {title:'智能睡眠从概念进入产品与系统竞争',pattern:/智能睡眠|AI睡眠|端侧AI|睡眠生态|智能床/,explain:'本月公开信息开始同时讨论硬件、算法、分区体验与睡眠生态，竞争重点不再只是单一功能卖点。'},
+      {title:'场景体验正在替代单品陈列',pattern:/场景体验|生活方式|整屋|全屋|定制|样板空间/,explain:'品牌更频繁地把产品放进完整空间与生活场景中，降低消费者理解组合搭配的成本。'},
+      {title:'展会与门店重新成为新品解释场',pattern:/展会|博览会|门店|体验店|发布会|私享会/,explain:'线下空间承担体验、产品教育与渠道沟通，线上内容更多负责预热、放大和持续触达。'},
+      {title:'材料、原创设计与可持续成为共同议题',pattern:/材料创新|原创设计|东方审美|绿色可持续|环保|品质/,explain:'行业讨论从风格表达延伸到材料、工艺与长期价值，品牌需要给出更容易验证的证据。'},
+      {title:'渠道动作正在从单点曝光转向协同',pattern:/全渠道|渠道融合|线上线下|社媒|电商|门店/,explain:'同一事件越来越多地跨越内容平台、零售渠道与线下场景，需要按渠道角色而不是按平台罗列。'}
+    ];
+    const matched=candidates.map(item=>{
+      const hits=evidence.filter(source=>item.pattern.test(source.text));
+      return {...item,hits,brands:[...new Set(hits.map(hit=>hit.brand).filter(Boolean))]};
+    }).filter(item=>item.hits.length).sort((a,b)=>b.hits.length-a.hits.length).slice(0,5);
+    if(matched.length>=3)return matched;
+    const fallback={title:'本月有效行业信号仍在积累',explain:'当前已发布证据不足以形成更多稳定判断，保留空缺，等待通过审核的新资料补充。',hits:[],brands:[]};
+    while(matched.length<3)matched.push({...fallback,title:matched.length===0?'本月有效行业信号仍在积累':`待补充判断 ${matched.length+1}`});
+    return matched;
+  }
+  function renderTrendCards(events){
+    return '<section class="card panel monthly-overview"><div class="monthly-section-head"><div><div class="section-index">01 / '+monthLabel(activeReportMonth)+' · 行业趋势</div><h2 class="panel-title">本月家具行业发生了什么</h2><p>仅从本月已核验行业资料与已发布案例归纳，不把单篇报道直接当作行业结论。</p></div><span class="monthly-count-badge">3–5 条月度判断</span></div><div class="monthly-trend-grid">'+buildIndustryInsights(events).map((item,index)=>'<article class="monthly-trend-card"><small>'+String(index+1).padStart(2,'0')+' / 月度判断</small><h3>'+safe(item.title)+'</h3><p>'+safe(item.explain)+'</p><footer><span>'+item.hits.length+' 条相关证据</span><span>'+safe(item.brands.slice(0,3).join('、')||'等待补充')+'</span></footer></article>').join('')+'</div></section>';
+  }
+  function renderChannelMatrix(events,brands){
+    const rows=brands.map(brand=>{
+      const brandEvents=events.filter(event=>event.brand===brand);
+      const cells=channelGroups.map(group=>{
+        const matched=brandEvents.filter(event=>eventChannels(event).includes(group.key));
+        const labels=[...new Set(matched.map(event=>event.type||event.theme||'已记录'))].slice(0,2);
+        return '<button class="channel-cell '+(matched.length?'has-action':'is-empty')+'" data-matrix-brand="'+safe(brand)+'" '+(matched.length?'':'disabled')+' aria-label="'+safe(brand+' '+group.label+' '+matched.length+'条动作')+'"><strong>'+(matched.length||'—')+'</strong><small>'+safe(labels.join(' / ')||(matched.length?'已记录':'暂无动作'))+'</small></button>';
+      }).join('');
+      return '<div class="channel-row"><button class="channel-brand" data-matrix-brand="'+safe(brand)+'"><strong>'+safe(brand)+'</strong><small>'+brandEvents.length+' 个案例</small></button>'+cells+'</div>';
+    }).join('');
+    return '<section class="card panel monthly-matrix"><div class="monthly-section-head"><div><div class="section-index">02 / 竞品动作</div><h2 class="panel-title">品牌 × 渠道矩阵</h2><p>查看重点竞品本月在哪些渠道发生动作；点击品牌或有数据的单元格，进入案例拆解。</p></div><span class="monthly-count-badge">'+brands.length+' 个品牌 · '+events.length+' 个案例</span></div><div class="channel-matrix-wrap"><div class="channel-matrix"><div class="channel-header"><span>重点竞品</span>'+channelGroups.map(group=>'<strong>'+group.label+'</strong>').join('')+'</div>'+rows+'</div></div><p class="note">“—”表示当前已发布资料中尚未发现对应动作，不等同于品牌实际没有布局；矩阵会随审核通过的案例自动补充。</p></section>';
+  }
   const placements={
     '源氏木语':{label:'展会',x:19,y:65},
     '顾家家居':{label:'新品私享会 · 渠道交流',x:39,y:83},
@@ -174,23 +217,10 @@
     const events=allEvents.filter(event=>monthOf(event)===activeReportMonth);
     const brands=[...new Set(events.map(e=>e.brand))];
     if(!brands.includes(activeBrand))activeBrand=null;
-    const activity=brands.map((brand,i)=>{
-      const e=events.find(e=>e.brand===brand),p=placements[brand]||{label:e.type||'其他动作',y:72};
-      const count=new Set(events.filter(e=>e.brand===brand).map(e=>e.date+'|'+e.event)).size;
-      return {brand,p,count,order:i};
-    });
-    const maxCount=Math.max(1,...activity.map(a=>a.count));
-    activity.sort((a,b)=>b.count-a.count||a.order-b.order);
-    const card=a=>{
-      const score=Math.round(100*a.count/maxCount);
-      return '<button class="coord-brand '+(activeBrand===a.brand?'selected':'')+'" data-monthly-brand="'+safe(a.brand)+'" style="--activity:'+score+'" aria-pressed="'+(activeBrand===a.brand)+'" title="本期收录活跃指数 '+score+'；'+a.count+'个独立事件"><span class="coord-dot"></span><strong>'+safe(a.brand)+'</strong><small>'+safe(a.p.label)+'</small><span class="coord-activity">活跃指数 <b>'+score+'</b><em>'+a.count+'个事件</em></span></button>';
-    };
-    const lane=(online,label)=>'<section class="coord-lane"><div class="coord-lane-label">'+label+'</div><div class="coord-brand-row">'+activity.filter(a=>(a.p.y<50)===online).map(card).join('')+'</div></section>';
-    pane.innerHTML='<section class="card panel"><div class="monthly-report-head"><div><div class="section-index">01 / '+monthLabel(activeReportMonth)+' · 竞品动作</div><h2 class="panel-title">竞品全景图</h2></div><label class="monthly-report-picker">查看月报<select class="select" data-report-month>'+available.map(month=>'<option value="'+safe(month)+'" '+(month===activeReportMonth?'selected':'')+'>'+safe(monthLabel(month))+' · '+safe(month)+'</option>').join('')+'</select></label></div>'+(events.length?'<div class="monthly-coordinate activity-map">'+lane(true,'线上 · 内容与平台活动')+lane(false,'线下 · 展会与发布活动')+'</div>':'<div class="monthly-empty"><strong>'+monthLabel(activeReportMonth)+'尚未形成已发布案例</strong><p>资料仍可继续采集、审核和补充；通过看板预览验证后，才会进入本月月报。</p></div>')+'<p class="note">月报按事件发生月份归档。同一案例获得更完整、更可靠的证据后，会补充或替换旧版本；历史月份不会被后续月份覆盖。</p></section><div class="monthly-dimensions" id="monthlyReader" aria-live="polite"></div>';
+    pane.innerHTML='<div class="monthly-report-toolbar"><div><div class="section-index">MONTHLY COMPETITOR REVIEW</div><h2>'+monthLabel(activeReportMonth)+'竞品分析</h2></div><label class="monthly-report-picker">查看月报<select class="select" data-report-month>'+available.map(month=>'<option value="'+safe(month)+'" '+(month===activeReportMonth?'selected':'')+'>'+safe(monthLabel(month))+' · '+safe(month)+'</option>').join('')+'</select></label></div>'+renderTrendCards(events)+(events.length?renderChannelMatrix(events,brands):'<section class="card panel monthly-empty"><strong>'+monthLabel(activeReportMonth)+'尚未形成已发布案例</strong><p>资料仍可继续采集、审核和补充；通过看板预览验证后，才会进入本月月报。</p></section>')+'<section class="monthly-case-layer"><div class="monthly-layer-label"><div><div class="section-index">03 / 案例拆解</div><h2>按品牌进入案例子页面</h2></div><p>沿用现有案例结构，不改变内容与证据链。</p></div><div class="monthly-dimensions" id="monthlyReader" aria-live="polite"></div></section><p class="note monthly-archive-note">月报按事件发生月份归档。同一案例获得更完整、更可靠的证据后，会补充或替换旧版本；历史月份不会被后续月份覆盖。</p>';
     pane.querySelector('[data-report-month]').onchange=event=>{activeReportMonth=event.target.value;activeBrand=null;activeEvent=0;renderMonthly();};
-    pane.querySelectorAll('[data-monthly-brand]').forEach(button=>button.onclick=()=>{
-      activeBrand=button.dataset.monthlyBrand;activeDimension='product';activeStep=0;activeEvent=0;
-      pane.querySelectorAll('[data-monthly-brand]').forEach(b=>{b.classList.toggle('selected',b===button);b.setAttribute('aria-pressed',String(b===button));});
+    pane.querySelectorAll('[data-matrix-brand]').forEach(button=>button.onclick=()=>{
+      activeBrand=button.dataset.matrixBrand;activeDimension='product';activeStep=0;activeEvent=0;
       renderReader();
       document.querySelector('#monthlyReader').scrollIntoView({behavior:'smooth',block:'start'});
     });
