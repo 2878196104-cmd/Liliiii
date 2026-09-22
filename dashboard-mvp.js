@@ -246,6 +246,7 @@
   }
   const p3=document.querySelector('#page-compare');[...p3.children].forEach(el=>el.classList.add('retired-module'));
   document.querySelector('.nav [data-page="intelligence"]').addEventListener('click',renderMonthly);
+  window.addEventListener('monthly-know:data-ready', renderMonthly);
   renderMonthly();
   document.querySelector('[data-page="home"]').click();
 })();
