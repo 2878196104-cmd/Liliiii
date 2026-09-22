@@ -410,6 +410,63 @@ def status_snapshot():
     return {"total": len(rows), **counts}
 
 
+def infer_event_type(title, body):
+    text_value = f"{title or ''} {body or ''}"
+    rules = [
+        (r"联名|合作", "品牌联名"),
+        (r"新品|发布|推出|上市", "新品发布"),
+        (r"门店|开业|开店", "渠道动作"),
+        (r"报告|趋势|数据", "行业趋势"),
+        (r"营销|广告|案例|campaign", "营销案例"),
+    ]
+    for pattern, label in rules:
+        if re.search(pattern, text_value, re.I):
+            return label
+    return "行业动态"
+
+
+def backfill_accepted_events():
+    documents = supabase(
+        "raw_documents?select=id,title,body_text,published_at,raw_payload,sources(name)"
+        "&processing_status=eq.accepted&limit=1000"
+    ) or []
+    evidence_rows = supabase("event_evidence?select=document_id&limit=5000") or []
+    linked = {row["document_id"] for row in evidence_rows}
+    created = 0
+    for document in documents:
+        if document["id"] in linked:
+            continue
+        score = ((document.get("raw_payload") or {}).get("prefilter") or {}).get("score", 50)
+        summary = clean(document.get("body_text") or "")[:360] or "正文摘要待补充"
+        source_name = (document.get("sources") or {}).get("name") or "待归类"
+        events = supabase(
+            "events", method="POST",
+            body=[{
+                "title": document["title"],
+                "event_type": infer_event_type(document["title"], document.get("body_text")),
+                "theme": source_name,
+                "summary": summary,
+                "happened_at": document.get("published_at"),
+                "status": "pending",
+                "confidence": max(0, min(1, float(score) / 100)),
+                "created_by": "accepted-document-backfill",
+            }],
+            prefer="return=representation",
+        )
+        supabase(
+            "event_evidence", method="POST",
+            body=[{
+                "event_id": events[0]["id"],
+                "document_id": document["id"],
+                "quote_text": summary[:500],
+                "evidence_role": "primary",
+            }],
+            prefer="return=minimal",
+        )
+        created += 1
+    return created
+
+
 def main():
     if not SUPABASE_URL or not SERVICE_KEY:
         raise SystemExit("SUPABASE_URL and SUPABASE_SECRET_KEY are required")
@@ -507,6 +564,7 @@ def main():
             }, ensure_ascii=False), file=sys.stderr)
 
     rescored = rescore_existing()
+    candidate_events_created = backfill_accepted_events()
     queue_snapshot = status_snapshot()
     print(json.dumps({
         "inserted": inserted,
@@ -517,6 +575,7 @@ def main():
         "paused_sources": paused_sources,
         "rescored_existing": rescored,
         "queue_snapshot": queue_snapshot,
+        "candidate_events_created": candidate_events_created,
     }, ensure_ascii=False))
     # A run is healthy when registered sources are simply waiting for their own interval.
     if sources and successful_sources == 0 and not_due_sources == 0 and paused_sources == 0:
