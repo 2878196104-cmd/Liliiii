@@ -268,8 +268,7 @@
       <div class="detail-body">${escapeHtml(row.body_text || "暂无正文摘要。")}</div>
       <div class="document-actions">
         ${url ? `<a class="button secondary" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">打开原始页面 ↗</a>` : ""}
-        <button data-dialog-action="accepted" data-id="${escapeHtml(row.id)}">采纳并进入预览</button>
-        <button data-dialog-action="ignored" data-id="${escapeHtml(row.id)}" class="danger">不采纳</button>
+        ${activeView === "review" ? `<button data-dialog-action="accepted" data-id="${escapeHtml(row.id)}">采纳并进入预览</button><button data-dialog-action="ignored" data-id="${escapeHtml(row.id)}" class="danger">不采纳</button>` : ""}
       </div>`;
     $("documentDialog").showModal();
   }
