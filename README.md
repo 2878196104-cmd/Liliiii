@@ -27,6 +27,7 @@
 
 - [自动化配置说明](docs/AUTOMATION_SETUP.md)
 - [系统交接文档](docs/HANDOFF.md)
+- [Jev 接入配置](docs/JEV_SETUP.md)
 
 ## 当前运行状态
 
@@ -35,6 +36,7 @@
 - 原始内容写入 Supabase `raw_documents`
 - 公开看板只读取审核通过的事件
 - 管理后台已支持采集收件箱、人工采纳、事件审核和信息源状态
+- 管理后台已加入 Jev 单条/批量结构化筛选界面与安全 Edge Function adapter
 - 当前下一优先级：将已采纳资料结构化为待审核事件与洞察
 
 ## 数据原则

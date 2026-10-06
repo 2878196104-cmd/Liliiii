@@ -55,6 +55,28 @@
       <section class="stats-grid" id="statsGrid" aria-label="采集概览"></section>
       <p class="preference-note" id="preferenceNote"></p>
 
+      <section class="jev-panel" id="jevPanel" aria-labelledby="jevTitle">
+        <div class="jev-panel-head">
+          <div>
+            <div class="jev-title-line">
+              <span class="eyebrow">JEV DECISION MODEL</span>
+              <span class="jev-connection" id="jevConnection">正在检查连接…</span>
+            </div>
+            <h3 id="jevTitle">信息源智能筛选</h3>
+            <p>只保留判断结果与标准；低置信度内容始终交由人工复核。</p>
+          </div>
+          <button id="runJevBatch" class="button">批量判断当前 10 条</button>
+        </div>
+        <div class="jev-summary" id="jevSummary" aria-label="Jev 筛选结果统计"></div>
+        <div class="jev-criteria" aria-label="Jev 筛选标准">
+          <span><strong>相关性</strong> 与品牌营销、家居或睡眠研究直接相关</span>
+          <span><strong>新颖性</strong> 包含非重复的新事实或新信号</span>
+          <span><strong>策略价值</strong> 能支撑趋势、人群、竞品或机会判断</span>
+          <span><strong>来源质量</strong> 来源清晰、证据充分且可核验</span>
+        </div>
+        <p class="jev-run-status" id="jevRunStatus" aria-live="polite"></p>
+      </section>
+
       <section id="documentView">
         <div class="toolbar">
           <div class="search-box">
@@ -111,6 +133,6 @@
   </dialog>
 
   <script src="runtime-config.js"></script>
-  <script src="admin.js?v=20260922-5"></script>
+  <script src="admin.js?v=20261006-1"></script>
 </body>
 </html>

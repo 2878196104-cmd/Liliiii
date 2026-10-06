@@ -21,6 +21,21 @@
     return config.supabaseUrl && config.supabaseAnonKey && !config.supabaseUrl.includes("YOUR_PROJECT");
   }
 
+  async function jevApi(body) {
+    const response = await fetch(`${config.supabaseUrl}/functions/v1/jev-evaluate`, {
+      method: body ? "POST" : "GET",
+      headers: {
+        apikey: config.supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `Jev 服务不可用（${response.status}）`);
+    return payload;
+  }
+
   async function api(path, options = {}) {
     const headers = {
       apikey: config.supabaseAnonKey,
@@ -102,6 +117,68 @@
     $("preferenceNote").textContent = reviewed.length
       ? `偏好学习已记录 ${reviewed.length} 次人工选择：采纳 ${acceptedFeedback} 条，不采纳 ${ignoredFeedback} 条。后续采集会据此调整来源与主题排序。`
       : "偏好学习将在你开始采纳或不采纳后生效；系统只学习主题、来源和内容特征，不改变历史资料。";
+    renderJevSummary();
+  }
+
+  function renderJevSummary() {
+    const results = statsRows.map(row => row.raw_payload?.jev).filter(Boolean);
+    const passed = results.filter(item => item.status === "pass").length;
+    const review = results.filter(item => item.status === "review").length;
+    const filtered = results.filter(item => item.status === "filter").length;
+    const averageConfidence = results.length
+      ? Math.round(results.reduce((sum, item) => sum + Number(item.confidence || 0), 0) / results.length * 100)
+      : 0;
+    const cards = [
+      ["已判断", results.length, "最近 1000 条"],
+      ["建议保留", passed, "进入人工审核"],
+      ["需复核 / 过滤", `${review} / ${filtered}`, "不自动删除"],
+      ["平均置信度", results.length ? `${averageConfidence}%` : "—", "低于 65% 需复核"]
+    ];
+    $("jevSummary").innerHTML = cards.map(([label, value, note]) =>
+      `<article><small>${label}</small><strong>${value}</strong><span>${note}</span></article>`
+    ).join("");
+  }
+
+  function jevLabel(status) {
+    return ({ pass: "建议保留", review: "人工复核", filter: "建议过滤" })[status] || "待判断";
+  }
+
+  function renderJevResult(result) {
+    if (!result) return '<span class="jev-pending">尚未运行 Jev 判断</span>';
+    return `<div class="jev-result">
+      <span>相关性<strong>${escapeHtml(result.relevance ?? "—")}</strong></span>
+      <span>新颖性<strong>${escapeHtml(result.novelty ?? "—")}</strong></span>
+      <span>策略价值<strong>${escapeHtml(result.strategic_value ?? "—")}</strong></span>
+      <span>来源质量<strong>${escapeHtml(result.source_quality ?? "—")}</strong></span>
+      <span class="jev-recommendation">${escapeHtml(jevLabel(result.status))}<strong>${Math.round(Number(result.confidence || 0) * 100)}%</strong></span>
+    </div>`;
+  }
+
+  async function checkJevConnection() {
+    const badge = $("jevConnection");
+    try {
+      const result = await jevApi();
+      badge.textContent = result.configured ? `已连接 · ${result.model}` : "待配置 API Key";
+      badge.className = `jev-connection ${result.configured ? "connected" : "error"}`;
+    } catch (_) {
+      badge.textContent = "服务尚未部署";
+      badge.className = "jev-connection error";
+    }
+  }
+
+  async function runJev(documentIds, trigger) {
+    const ids = [...new Set(documentIds)].filter(Boolean).slice(0, 10);
+    if (!ids.length) throw new Error("当前没有可判断的资料。");
+    const status = $("jevRunStatus");
+    if (trigger) trigger.disabled = true;
+    status.textContent = `Jev 正在判断 ${ids.length} 条资料…`;
+    try {
+      const result = await jevApi({ document_ids: ids });
+      status.textContent = `完成 ${result.completed || 0} 条；${result.failed || 0} 条失败。结果已写回信息源库。`;
+      await Promise.all([loadDocuments(), loadStats()]);
+    } finally {
+      if (trigger) trigger.disabled = false;
+    }
   }
 
   function currentDocumentStatus() {
@@ -150,8 +227,10 @@
         </div>
         <h3>${escapeHtml(row.title)}</h3>
         <p>${escapeHtml(excerpt(row.body_text) || "暂无正文摘要，可打开原文核验。")}</p>
+        ${renderJevResult(row.raw_payload?.jev)}
         <div class="document-actions">
           ${url ? `<a class="button secondary" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">核验原文 ↗</a>` : ""}
+          <button data-run-jev class="secondary">${row.raw_payload?.jev ? "重新运行 Jev" : "运行 Jev 判断"}</button>
           ${activeView === "review" ? '<button data-doc-action="accepted">采纳并进入预览</button><button data-doc-action="ignored" class="danger">不采纳</button>' : ""}
           ${activeView === "review" && !["new","needs_review"].includes(row.processing_status) ? '<button data-doc-action="new" class="secondary">重新审核</button>' : ""}
         </div>
@@ -362,6 +441,7 @@
     $("documentView").hidden = !["inbox", "review"].includes(view);
     $("eventView").hidden = view !== "preview";
     $("sourceView").hidden = view !== "sources";
+    $("jevPanel").hidden = !["inbox", "review"].includes(view);
     $("statsGrid").hidden = view === "sources";
     $("preferenceNote").hidden = view === "sources";
     const titles = { inbox: "采集池", review: "人工审核", preview: "看板预览", sources: "信息源管理" };
@@ -383,6 +463,7 @@
 
   async function bootstrap() {
     await Promise.all([loadSourceData(), loadStats()]);
+    checkJevConnection();
     await activateView("inbox");
   }
 
@@ -410,11 +491,18 @@
   $("documentStatus").addEventListener("change", () => loadDocuments().catch(showError));
   $("sourceFilter").addEventListener("change", () => loadDocuments().catch(showError));
   $("refreshDocuments").addEventListener("click", () => Promise.all([loadSourceData(), loadStats(), loadDocuments()]).catch(showError));
+  $("runJevBatch").addEventListener("click", event => {
+    const ids = filteredDocuments().filter(row => !row.raw_payload?.jev).slice(0, 10).map(row => row.id);
+    const fallbackIds = filteredDocuments().slice(0, 10).map(row => row.id);
+    runJev(ids.length ? ids : fallbackIds, event.currentTarget).catch(showError);
+  });
 
   $("documentQueue").addEventListener("click", event => {
     const card = event.target.closest("[data-id]");
     if (!card) return;
     if (event.target.closest("[data-open-document]")) return openDocument(card.dataset.id);
+    const jevButton = event.target.closest("[data-run-jev]");
+    if (jevButton) return runJev([card.dataset.id], jevButton).catch(showError);
     const action = event.target.closest("[data-doc-action]")?.dataset.docAction;
     if (action) updateDocumentStatus(card.dataset.id, action).catch(showError);
   });
