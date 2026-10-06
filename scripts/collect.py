@@ -643,12 +643,13 @@ def main():
     research_file = SOURCE_FILE.with_name("research-sources.json")
     if research_file.exists():
         sources = [item for item in json.loads(research_file.read_text("utf-8")) if item.get("enabled")] + sources
-    expanded_file = SOURCE_FILE.with_name("expanded-sources.json")
-    if expanded_file.exists():
-        expanded = [{"enabled": True, "trust_level": 2, "collection_interval_minutes": 1440,
-                     "pools": ["competitor", "research"], **item}
-                    for item in json.loads(expanded_file.read_text("utf-8"))]
-        sources = [item for item in expanded if item.get("enabled")] + sources
+    for extra_name in ("expanded-sources.json", "creator-sources.json"):
+        extra_file = SOURCE_FILE.with_name(extra_name)
+        if extra_file.exists():
+            expanded = [{"enabled": True, "trust_level": 2, "collection_interval_minutes": 1440,
+                         "pools": ["competitor", "research"], **item}
+                        for item in json.loads(extra_file.read_text("utf-8"))]
+            sources = [item for item in expanded if item.get("enabled")] + sources
     print(json.dumps({
         "preflight": "starting",
         "secret_key_format": "sb_secret" if SERVICE_KEY.startswith("sb_secret_") else "legacy_or_unknown",

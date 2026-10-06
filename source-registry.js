@@ -4,6 +4,8 @@
     try{
       const url=new URL(source.base_url||source.url);
       if(!/^https?:$/.test(url.protocol))return null;
+      // A verified representative work is an entry point, never another creator.
+      if(source.creator_id && source.platform==='创作者')return {key:'creator:'+source.creator_id,url:url.href,host:url.hostname.replace(/^www\./,''),account:true};
       let host=url.hostname.toLowerCase().replace(/^www\./,'');
       const path=url.pathname.replace(/\/+$/,'');
       if(host==='weibo.com' && /^\/(?:u\/\d+|[a-zA-Z0-9_-]+)$/.test(path))return {key:host+path,url:'https://'+host+path,host,account:true};
@@ -28,6 +30,14 @@
     return [...map.values()];
   }
   function expandDefaults(sources){return sources.map(s=>({enabled:true,trust_level:2,collection_interval_minutes:1440,pools:['competitor','research'],...s}));}
-  const api={identity,group,expandDefaults};
+  function category(source){
+    if(source.source_type)return source.source_type;
+    if(source.platform==='创作者')return 'creators';
+    if(source.platform==='社媒账号')return 'accounts';
+    // Preserve existing official/reference entries under All, not as media.
+    if(/品牌官网|品牌官方|协会|展会|会议/.test(source.platform||''))return 'reference';
+    return 'websites';
+  }
+  const api={identity,group,expandDefaults,category};
   root.MONTHLY_SOURCES=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window==='undefined'?globalThis:window);

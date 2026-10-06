@@ -90,14 +90,15 @@
   }
 
   async function loadSourceData() {
-    const [rows, configResponse, researchConfig, expandedConfig] = await Promise.all([
+    const [rows, configResponse, researchConfig, expandedConfig, creatorConfig] = await Promise.all([
       api("/rest/v1/sources?select=id,name,base_url,platform,enabled,collection_interval_minutes,last_collected_at&order=name"),
       fetch("config/sources.json", { cache: "no-store" }).then(response => response.ok ? response.json() : []),
       fetch("config/research-sources.json", { cache: "no-store" }).then(response => response.ok ? response.json() : []),
-      fetch("config/expanded-sources.json", { cache: "no-store" }).then(response => response.ok ? response.json() : [])
+      fetch("config/expanded-sources.json", { cache: "no-store" }).then(response => response.ok ? response.json() : []),
+      fetch("config/creator-sources.json", { cache: "no-store" }).then(response => response.ok ? response.json() : [])
     ]);
     sourceRows = rows || [];
-    sourceConfig = [...(Array.isArray(configResponse) ? configResponse : []), ...(Array.isArray(researchConfig) ? researchConfig : []), ...MONTHLY_SOURCES.expandDefaults(Array.isArray(expandedConfig) ? expandedConfig : [])];
+    sourceConfig = [...(Array.isArray(configResponse) ? configResponse : []), ...(Array.isArray(researchConfig) ? researchConfig : []), ...MONTHLY_SOURCES.expandDefaults([...(Array.isArray(expandedConfig) ? expandedConfig : []), ...(Array.isArray(creatorConfig) ? creatorConfig : [])])];
     renderSourceFilter();
   }
   function renderSourceFilter() {
@@ -558,12 +559,12 @@
       return `<article class="source-card">
         <div class="source-card-head"><span class="status-pill ${latest ? "status-accepted" : "status-needs_review"}">${state}</span><small>${escapeHtml(item.platform || "其他来源")}</small></div>
         <h3>${escapeHtml(item.name)}</h3>
-        <p>${escapeHtml(item.account ? item.url : item.host)}</p>
+        <p>${escapeHtml(item.url_kind === "representative_work" ? item.host + " · 代表作品入口" : item.account ? item.url : item.host)}</p>
         ${item.focuses.length ? `<p>${escapeHtml(item.focuses.join("；"))}</p>` : ""}
         ${item.note ? `<p>${escapeHtml(item.note)}</p>` : ""}
         <p>${latest ? "最近采集：" + escapeHtml(formatDate(latest, true)) : "尚无成功采集时间"}</p>
         <p class="source-quality">近批资料 ${sourceStats.length} 条 · 初筛保留率 ${rate}%</p>
-        <div class="source-foot">${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">打开来源 ↗</a>` : ""}</div>
+        <div class="source-foot">${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${item.url_kind === "representative_work" ? "查看代表作品" : "打开来源"} ↗</a>` : ""}</div>
         ${auto.length ? `<details><summary>采集设置 · ${auto.length} 个入口</summary>${auto.map(m => {const db=m.database;const enabled=db?.enabled ?? m.enabled;return `<p>${escapeHtml(m.name)} · 每 ${escapeHtml(db?.collection_interval_minutes || m.collection_interval_minutes || 360)} 分钟 ${db ? `<button class="source-toggle secondary" data-source-id="${escapeHtml(db.id)}" data-source-enabled="${enabled ? "false" : "true"}">${enabled ? "暂停" : "恢复"}</button>` : "待登记"}</p>`;}).join("")}</details>` : ""}
       </article>`;
     }).join("");

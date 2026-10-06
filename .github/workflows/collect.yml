@@ -17,6 +17,7 @@ on:
       - "config/sources.json"
       - "config/research-sources.json"
       - "config/expanded-sources.json"
+      - "config/creator-sources.json"
       - "config/research-cases.json"
       - "scripts/collect.py"
       - ".github/workflows/collect.yml"
