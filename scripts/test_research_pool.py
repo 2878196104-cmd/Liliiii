@@ -7,8 +7,8 @@ import collect
 class ResearchPoolTests(unittest.TestCase):
     def test_seed_summaries_have_evidence_and_dates(self):
         rows = collect.collect_source({"mode": "curated", "data_file": "config/research-cases.json"})
-        self.assertEqual(len(rows), 11)
-        self.assertEqual(len({row["url"] for row in rows}), 11)
+        self.assertEqual(len(rows), 16)
+        self.assertEqual(len({row["url"] for row in rows}), 16)
         for row in rows:
             self.assertTrue(row["url"].startswith("https://"))
             self.assertTrue(row["published"])

@@ -3,7 +3,7 @@
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const safeUrl = value => { try { const u = new URL(value); return /^https?:$/.test(u.protocol) ? u.href : ''; } catch { return ''; } };
   const taskLabels = {all:'全部任务',launch:'新品发布',seasonal:'节点 / 品牌节',brand:'品牌表达',experience:'线下体验',education:'用户教育',conversion:'渠道转化'};
-  const filters = {theme:'睡眠', product:'all', scope:'all', task:'all', years:'2'};
+  const filters = {theme:'睡眠', product:'all', scope:'category', task:'all', years:'2'};
   let seeds = [], loadError = '', host, liveEvents = [], selected = [], notes = '', saved = true;
   const storageKey = () => 'monthly-note:research:v1:' + filters.theme.trim().toLowerCase();
   function restore() {
@@ -36,7 +36,7 @@
     const theme = filters.theme.trim().toLowerCase();
     const terms = theme.split(/[\s，、,]+/).filter(Boolean);
     const text = [row.title,row.brand,row.summary,...(row.tags||[]),...(row.products||[])].join(' ').toLowerCase();
-    return terms.every(term=>text.includes(term)) && (filters.product==='all'||row.products.includes(filters.product))
+    return terms.every(term=>term==='睡眠'?/睡眠|深睡|床垫|枕头|寝具|家纺|床品|智能床|试睡/.test(text):text.includes(term)) && (filters.product==='all'||row.products.includes(filters.product))
       && (filters.scope==='all'||row.scope===filters.scope) && (filters.task==='all'||row.tasks.includes(filters.task));
   }
   const options = (items, value) => Object.entries(items).map(([key,label])=>`<option value="${escape(key)}" ${key===value?'selected':''}>${escape(label)}</option>`).join('');
@@ -65,12 +65,13 @@
     const references = visible.filter(r=>r.kind!=='inspiration'), inspirations = visible.filter(r=>r.kind==='inspiration');
     host.innerHTML = `<div class="research-heading"><small>PROJECT RESEARCH</small><h2>专题研究</h2><p>为这一次方案搜集材料，而不是再读一份月报。</p></div>
       <form class="research-brief"><label>研究主题<input name="theme" aria-label="研究主题" value="${escape(filters.theme)}" placeholder="睡眠 / 品牌日 / 门店体验"></label>
-      <label>研究范围<select name="product">${options({all:'全部睡眠品类与跨界',床垫:'床垫',枕头:'枕头',家纺:'家纺 / 床品',智能床:'智能床',跨界:'跨界'},filters.product)}</select></label>
-      <label>参考类型<select name="scope">${options({all:'品类 + 跨界',category:'品类品牌',cross:'跨界灵感'},filters.scope)}</select></label>
+      <label>产品品类<select name="product">${options({all:'全部品类',床垫:'床垫',枕头:'枕头',家纺:'家纺 / 床品',智能床:'智能床'},filters.product)}</select></label>
+      <label>参考关系<select name="scope">${options({all:'品类案例 + 跨界灵感',category:'品类案例',cross:'跨界灵感'},filters.scope)}</select></label>
       <label>营销任务<select name="task">${options(taskLabels,filters.task)}</select></label>
       <label>时间范围<select name="years">${options({'2':'近两年','1':'近一年'},filters.years)}</select></label><button type="submit">更新研究</button></form>
-      <div class="research-result-count" role="status">${loadError?escape(loadError):`${visible.length} 条匹配 · ${references.length} 条参考资料 · ${inspirations.length} 条灵感`}<a href="#researchSynthesis">查看方案线索 (${selected.length})</a></div>
-      <section><div class="research-section-title"><div><small>01 / 参考资料</small><h2>产品、节点与品牌动作</h2></div><span>${references.length} 条</span></div><div class="research-reference-grid">${references.map(r=>card(r,false)).join('')||'<p class="research-empty">暂无匹配的已收录资料。可放宽任务或范围；不会用无关案例填满结果。</p>'}</div></section>
+      <div class="research-result-count" role="status">${loadError?escape(loadError):`库内匹配 ${visible.length} 条 · ${references.length} 条参考资料 · ${inspirations.length} 条灵感（不是全网结果）`}<a href="#researchSynthesis">查看方案线索 (${selected.length})</a></div>
+      ${window.MONTHLY_RESEARCH_INSIGHTS?window.MONTHLY_RESEARCH_INSIGHTS.render(visible,filters):''}
+      <details class="research-materials"><summary>证据资料 · 产品、节点与品牌动作（${references.length} 条）</summary><div class="research-reference-grid">${references.map(r=>card(r,false)).join('')||'<p class="research-empty">暂无匹配的已收录资料。可放宽任务或范围；不会用无关案例填满结果。</p>'}</div></details>
       <section class="research-inspiration-section"><div class="research-section-title"><div><small>02 / 灵感墙</small><h2>一些可以借走的表达</h2></div><span>${inspirations.length} 条</span></div><div class="research-inspiration-wall">${inspirations.map(r=>card(r,true)).join('')||'<p class="research-empty">当前范围没有跨界灵感。选择“品类 + 跨界”或“跨界灵感”查看。</p>'}</div></section>${synthesis()}
       <p class="research-footnote">首批资料为人工核对来源的摘要，不是 Jev 自动判断结果。日期为报道日期时已单独注明。筛选仅检索已收录资料，不代表实时搜索整个互联网。</p>`;
     host.querySelector('form').onsubmit = event => {
@@ -87,7 +88,7 @@
     host.querySelectorAll('[data-remove-research]').forEach(button=>button.onclick=()=>{selected=selected.filter(s=>s.id!==button.dataset.removeResearch);save();render(host,liveEvents);});
     host.querySelector('textarea').oninput = event => {notes=event.target.value;save();host.querySelector('#researchSaveState').textContent=saved?'草稿已保存在当前浏览器':'保存失败，请导出草稿';};
     host.querySelector('[data-export-research]').onclick = () => {
-      const content = `# ${filters.theme||'专题'}研究草稿\n\n研究范围：${filters.product}；任务：${taskLabels[filters.task]}；近${filters.years}年\n\n` + selected.map(s=>`## ${s.title}\n${s.brand} · ${s.date} · ${s.date_basis||''}\n\n来源事实：${s.summary}\n\n借鉴（待验证）：${s.idea||''}\n\n边界：${s.limits||''}\n\n原文：${safeUrl(s.url)}\n`).join('\n')+`\n## 自己的想法\n${notes}\n`;
+      const content = `# ${filters.theme||'专题'}研究草稿\n\n研究范围：${filters.product}；任务：${taskLabels[filters.task]}；近${filters.years}年\n\n` + (window.MONTHLY_RESEARCH_INSIGHTS?.markdown(visible,filters)||'') + selected.map(s=>`## ${s.title}\n${s.brand} · ${s.date} · ${s.date_basis||''}\n\n来源事实：${s.summary}\n\n借鉴（待验证）：${s.idea||''}\n\n边界：${s.limits||''}\n\n原文：${safeUrl(s.url)}\n`).join('\n')+`\n## 自己的想法\n${notes}\n`;
       const url = URL.createObjectURL(new Blob([content],{type:'text/markdown;charset=utf-8'}));
       const a = document.createElement('a');a.href=url;a.download='专题研究草稿.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     };
@@ -96,4 +97,5 @@
     seeds=cases;if(host?.isConnected&&document.querySelector('[data-page="research"]')?.getAttribute('aria-selected')==='true')render(host,liveEvents);
   }).catch(()=>{loadError='专题资料加载失败，请刷新后重试';if(host?.isConnected)render(host,liveEvents);});
   window.MONTHLY_RESEARCH={render};
+  window.addEventListener('research-brief-ready',()=>{if(host?.isConnected&&document.querySelector('[data-page="research"]')?.getAttribute('aria-selected')==='true')render(host,liveEvents);});
 })();
