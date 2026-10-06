@@ -90,13 +90,14 @@
   }
 
   async function loadSourceData() {
-    const [rows, configResponse, researchConfig] = await Promise.all([
+    const [rows, configResponse, researchConfig, expandedConfig] = await Promise.all([
       api("/rest/v1/sources?select=id,name,base_url,platform,enabled,collection_interval_minutes,last_collected_at&order=name"),
       fetch("config/sources.json", { cache: "no-store" }).then(response => response.ok ? response.json() : []),
-      fetch("config/research-sources.json", { cache: "no-store" }).then(response => response.ok ? response.json() : [])
+      fetch("config/research-sources.json", { cache: "no-store" }).then(response => response.ok ? response.json() : []),
+      fetch("config/expanded-sources.json", { cache: "no-store" }).then(response => response.ok ? response.json() : [])
     ]);
     sourceRows = rows || [];
-    sourceConfig = [...(Array.isArray(configResponse) ? configResponse : []), ...(Array.isArray(researchConfig) ? researchConfig : [])];
+    sourceConfig = [...(Array.isArray(configResponse) ? configResponse : []), ...(Array.isArray(researchConfig) ? researchConfig : []), ...MONTHLY_SOURCES.expandDefaults(Array.isArray(expandedConfig) ? expandedConfig : [])];
     renderSourceFilter();
   }
   function renderSourceFilter() {
@@ -537,30 +538,33 @@
 
   function mergedSources() {
     const databaseMap = new Map(sourceRows.map(row => [row.name, row]));
-    return sourceConfig.filter(item => (item.pools || ["competitor"]).includes(activePool())).map(item => ({ ...item, database: databaseMap.get(item.name) || null }));
+    return MONTHLY_SOURCES.group(sourceConfig.map(item => ({ ...item, database: databaseMap.get(item.name) || null })));
   }
 
   function renderSources() {
     const rows = mergedSources();
     $("sourceCount").textContent = rows.length;
-    $("workspaceSummary").textContent = `${rows.length} 个来源已登记；成功状态来自 Supabase 最近采集记录。`;
+    $("workspaceSummary").textContent = `${rows.length} 个独立网站或账号；同站采集入口合并展示，实际运行状态见下方。`;
     $("sourceGrid").innerHTML = rows.map(item => {
-      const db = item.database;
-      const url = safeUrl(item.entry_url || item.base_url);
-      const effectiveEnabled = db?.enabled ?? item.enabled;
-      const state = !effectiveEnabled ? "已暂停" : item.mode === "manual" ? "人工核验入口" : db?.last_collected_at ? "已运行采集" : "待采集验证";
-      const sourceStats = statsRows.filter(row => row.source_id === db?.id);
+      const members = item.members;
+      const latest = members.map(m => m.database?.last_collected_at).filter(Boolean).sort().at(-1);
+      const auto = members.filter(m => m.mode !== "manual");
+      const state = !auto.length ? "人工核验入口" : auto.every(m => !(m.database?.enabled ?? m.enabled)) ? "已暂停" : latest ? "已有采集记录" : "待采集验证";
+      const url = safeUrl(item.url);
+      const ids = new Set(members.map(m => m.database?.id).filter(Boolean));
+      const sourceStats = statsRows.filter(row => ids.has(row.source_id));
       const useful = sourceStats.filter(row => ["new", "needs_review", "accepted"].includes(row.processing_status)).length;
       const rate = sourceStats.length ? Math.round(useful / sourceStats.length * 100) : 0;
       return `<article class="source-card">
-        <div class="source-card-head"><span class="status-pill ${db ? "status-accepted" : "status-needs_review"}">${state}</span><small>${escapeHtml(item.platform || "其他来源")}</small></div>
+        <div class="source-card-head"><span class="status-pill ${latest ? "status-accepted" : "status-needs_review"}">${state}</span><small>${escapeHtml(item.platform || "其他来源")}</small></div>
         <h3>${escapeHtml(item.name)}</h3>
-        ${item.focus ? `<p>${escapeHtml(item.focus)}</p>` : ""}
+        <p>${escapeHtml(item.account ? item.url : item.host)}</p>
+        ${item.focuses.length ? `<p>${escapeHtml(item.focuses.join("；"))}</p>` : ""}
         ${item.note ? `<p>${escapeHtml(item.note)}</p>` : ""}
-        <p>${db?.last_collected_at ? "最近成功：" + escapeHtml(formatDate(db.last_collected_at, true)) : "尚无成功采集时间"}</p>
+        <p>${latest ? "最近采集：" + escapeHtml(formatDate(latest, true)) : "尚无成功采集时间"}</p>
         <p class="source-quality">近批资料 ${sourceStats.length} 条 · 初筛保留率 ${rate}%</p>
-        <div class="source-foot"><span>每 ${escapeHtml(db?.collection_interval_minutes || item.collection_interval_minutes || 360)} 分钟</span>${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">打开来源 ↗</a>` : ""}</div>
-        ${db && item.mode !== "manual" ? `<button class="source-toggle secondary" data-source-id="${escapeHtml(db.id)}" data-source-enabled="${effectiveEnabled ? "false" : "true"}">${effectiveEnabled ? "暂停采集" : "恢复采集"}</button>` : ""}
+        <div class="source-foot">${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">打开来源 ↗</a>` : ""}</div>
+        ${auto.length ? `<details><summary>采集设置 · ${auto.length} 个入口</summary>${auto.map(m => {const db=m.database;const enabled=db?.enabled ?? m.enabled;return `<p>${escapeHtml(m.name)} · 每 ${escapeHtml(db?.collection_interval_minutes || m.collection_interval_minutes || 360)} 分钟 ${db ? `<button class="source-toggle secondary" data-source-id="${escapeHtml(db.id)}" data-source-enabled="${enabled ? "false" : "true"}">${enabled ? "暂停" : "恢复"}</button>` : "待登记"}</p>`;}).join("")}</details>` : ""}
       </article>`;
     }).join("");
   }
@@ -574,6 +578,7 @@
     $("jevPanel").hidden = !["inbox", "review"].includes(view);
     $("statsGrid").hidden = view === "sources";
     $("preferenceNote").hidden = view === "sources";
+    $("poolFilter").closest(".toolbar").hidden = view === "sources";
     const titles = { inbox: "采集池", review: "人工审核", preview: "看板预览", sources: "信息源管理" };
     $("workspaceTitle").textContent = titles[view];
     if (view === "inbox") {

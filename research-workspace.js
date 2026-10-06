@@ -4,7 +4,7 @@
   const safeUrl = value => { try { const u = new URL(value); return /^https?:$/.test(u.protocol) ? u.href : ''; } catch { return ''; } };
   const taskLabels = {all:'全部任务',launch:'新品发布',seasonal:'节点 / 品牌节',brand:'品牌表达',experience:'线下体验',education:'用户教育',conversion:'渠道转化'};
   const filters = {theme:'睡眠', product:'all', scope:'all', task:'all', years:'2'};
-  let seeds = [], sources = [], loadError = '', host, liveEvents = [], selected = [], notes = '', saved = true;
+  let seeds = [], loadError = '', host, liveEvents = [], selected = [], notes = '', saved = true;
   const storageKey = () => 'monthly-note:research:v1:' + filters.theme.trim().toLowerCase();
   function restore() {
     try { const data = JSON.parse(localStorage.getItem(storageKey()) || '{}'); selected = Array.isArray(data.selected) ? data.selected : []; notes = String(data.notes || ''); }
@@ -92,13 +92,8 @@
       const a = document.createElement('a');a.href=url;a.download='专题研究草稿.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     };
   }
-  function mountSources() {
-    const page=document.querySelector('#page-sources'); if(!page)return;
-    let section=page.querySelector('#researchSourceRegistry'); if(!section){section=document.createElement('section');section.id='researchSourceRegistry';page.prepend(section);}
-    section.innerHTML=`<div class="research-section-title"><div><small>独立信息池 / 专题研究</small><h2>睡眠研究的信息入口</h2></div><span>${sources.length} 个入口</span></div><p>与常规竞品池分别管理。登记入口不等于采集成功；实际采集状态在管理后台查看。</p><div class="research-source-grid">${sources.map(s=>`<article><small>${escape(s.platform)} · ${s.mode==='manual'?'人工核验入口':s.mode==='curated'?'已核对摘要':'已配置采集，待查看运行结果'}</small><h3>${escape(s.name)}</h3><p>${escape(s.focus)}</p>${s.note?`<p>${escape(s.note)}</p>`:''}<a href="${escape(safeUrl(s.entry_url||s.base_url))}" target="_blank" rel="noopener noreferrer">打开来源</a></article>`).join('')}</div>`;
-  }
-  Promise.all(['research-cases','research-sources'].map(name=>fetch('config/'+name+'.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('资料加载失败');return r.json();}))).then(([cases,registry])=>{
-    seeds=cases;sources=registry;mountSources();if(host?.isConnected&&document.querySelector('[data-page="research"]')?.getAttribute('aria-selected')==='true')render(host,liveEvents);
+  fetch('config/research-cases.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('资料加载失败');return r.json();}).then(cases=>{
+    seeds=cases;if(host?.isConnected&&document.querySelector('[data-page="research"]')?.getAttribute('aria-selected')==='true')render(host,liveEvents);
   }).catch(()=>{loadError='专题资料加载失败，请刷新后重试';if(host?.isConnected)render(host,liveEvents);});
   window.MONTHLY_RESEARCH={render};
 })();

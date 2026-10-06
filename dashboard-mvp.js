@@ -241,7 +241,8 @@
         }
         return '<div class="channel-cell has-action"><div class="channel-cell-meta"><span>'+matched.length+' 项动作</span></div>'+matched.map(eventCard).join('')+'</div>';
       }).join('');
-      return '<div class="channel-row"><button class="channel-brand" data-matrix-brand="'+safe(brand)+'"><span>重点竞品</span><strong>'+safe(brand)+'</strong><small>'+brandEvents.length+' 个案例</small></button>'+cells+'</div>';
+      const logo={'源氏木语':'yeswood.png','林氏家居':'linsy.png','顾家家居':'kuka.jpg','慕思床垫':'derucci.png','慕思':'derucci.png'}[brand];
+      return '<div class="channel-row"><button class="channel-brand" data-matrix-brand="'+safe(brand)+'">'+(logo?'<span class="matrix-brand-logo '+(brand==='源氏木语'?'logo-yeswood':brand.startsWith('慕思')?'logo-derucci':'')+'"><img src="assets/brand-logos/'+logo+'" alt="'+safe(brand)+' logo" loading="lazy"></span>':'')+'<strong>'+safe(brand)+'</strong><small>'+brandEvents.length+' 个案例</small></button>'+cells+'</div>';
     }).join('');
     const unclassified=uniqueEvents.filter(event=>!primaryChannel(event));
     return '<section class="card panel monthly-matrix"><div class="monthly-section-head"><div><div class="section-index">02 / 竞品动作</div><h2 class="panel-title">品牌 × 渠道全景</h2><p>每个案例只在主要渠道展示一次；其他渠道联动标在卡片内。</p></div><span class="monthly-count-badge">'+brands.length+' 个品牌 · '+uniqueEvents.length+' 个案例</span></div><div class="channel-matrix-wrap"><div class="channel-matrix"><div class="channel-header"><span>重点竞品</span>'+channelGroups.map(group=>'<strong>'+group.label+'</strong>').join('')+'</div>'+rows+'</div></div>'+(unclassified.length?'<div class="channel-unclassified"><h3>主要渠道待确认</h3>'+unclassified.map(eventCard).join('')+'</div>':'')+'<p class="note">展会、发布会优先归入新零售，平台首发归入电商 IP，广告片归入社媒传播。跨渠道联动不再重复铺卡；动作数按主要渠道计数。</p></section>';

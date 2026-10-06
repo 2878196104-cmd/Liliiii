@@ -420,11 +420,23 @@ def same_site(url: str, base_url: str) -> bool:
     return host == base_host or host.endswith("." + base_host) or base_host.endswith("." + host)
 
 
+def decode_html(payload):
+    # Some Chinese publisher sites still declare GBK/GB2312. Never discard bytes.
+    charset = re.search(br'charset\s*=\s*["\x27]?([a-zA-Z0-9_-]+)', payload[:8192], re.I)
+    encoding = charset.group(1).decode("ascii").lower() if charset else "utf-8"
+    if encoding in {"gbk", "gb2312", "gb18030"}:
+        return payload.decode("gb18030", errors="replace")
+    try:
+        return payload.decode("utf-8")
+    except UnicodeDecodeError:
+        return payload.decode("gb18030", errors="replace")
+
+
 def parse_public_index(source):
     entry_url = source.get("entry_url") or source["base_url"]
     payload = fetch_bytes(entry_url)
     parser = LinkParser()
-    parser.feed(payload.decode("utf-8", errors="ignore"))
+    parser.feed(decode_html(payload))
     patterns = [re.compile(value, re.I) for value in source.get("include_patterns", [])]
     seen = set()
     candidates = []
@@ -446,7 +458,7 @@ def parse_public_index(source):
     for url, fallback_title in candidates:
         try:
             article = ArticleParser()
-            article.feed(fetch_bytes(url).decode("utf-8", errors="ignore"))
+            article.feed(decode_html(fetch_bytes(url)))
             title = clean(
                 article.meta.get("og:title")
                 or article.meta.get("twitter:title")
@@ -631,6 +643,12 @@ def main():
     research_file = SOURCE_FILE.with_name("research-sources.json")
     if research_file.exists():
         sources = [item for item in json.loads(research_file.read_text("utf-8")) if item.get("enabled")] + sources
+    expanded_file = SOURCE_FILE.with_name("expanded-sources.json")
+    if expanded_file.exists():
+        expanded = [{"enabled": True, "trust_level": 2, "collection_interval_minutes": 1440,
+                     "pools": ["competitor", "research"], **item}
+                    for item in json.loads(expanded_file.read_text("utf-8"))]
+        sources = [item for item in expanded if item.get("enabled")] + sources
     print(json.dumps({
         "preflight": "starting",
         "secret_key_format": "sb_secret" if SERVICE_KEY.startswith("sb_secret_") else "legacy_or_unknown",

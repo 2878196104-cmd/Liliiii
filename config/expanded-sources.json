@@ -1,0 +1,20 @@
+[
+  {"name":"万叶千家","base_url":"https://www.homelifestyle.cn/","entry_url":"https://www.homelifestyle.cn/","platform":"家居媒体","mode":"html","include_patterns":["(?:article-|thread-|mod=viewthread|mod=view&aid=)"],"focus":"家居品牌、新零售、生活方式活动","max_items":3},
+  {"name":"今日家居 FurnitureToday","base_url":"https://www.furnituretoday.cn/","entry_url":"https://www.furnituretoday.cn/news/marketing/","platform":"家居媒体","mode":"html","include_patterns":["/news/[a-z]+/[0-9]+\\.html"],"focus":"品牌营销、床垫与智能床、新品发布","max_items":4},
+  {"name":"家居优品智库","base_url":"https://www.jiayopin.com/","platform":"家居媒体","mode":"html","include_patterns":["/[a-z]+/[0-9]+\\.html"],"focus":"家居品牌研究、发布会、渠道活动","max_items":3,"note":"网站同时提供家居没有圈、家居媒体人老吴等账号入口"},
+  {"name":"太平洋家居 PChouse","base_url":"https://www.pchouse.com.cn/","platform":"家居媒体","mode":"manual","focus":"家居评测、私宅设计、智能睡眠体验"},
+  {"name":"界面新闻·家居","base_url":"https://www.jiemian.com/","entry_url":"https://www.jiemian.com/lists/694.html","platform":"行业资讯","mode":"manual","focus":"家居公司、渠道变化、商业动态"},
+  {"name":"齐家网","base_url":"https://www.jia.com/","entry_url":"https://zixun.jia.com/","platform":"家居媒体","mode":"manual","focus":"装修用户问题、家居选材、场景内容"},
+  {"name":"什么值得买","base_url":"https://www.smzdm.com/","platform":"用户与评测","mode":"manual","focus":"床垫、枕头、床品选购与用户体验","note":"区分用户实测、商业推荐与促销信息；不直接当作独立产品结论"},
+  {"name":"床墊大叔","base_url":"https://beduncle.com/","entry_url":"https://beduncle.com/cn","platform":"创作者","mode":"manual","focus":"床垫知识、选购痛点、睡眠内容表达","note":"生活摇篮品牌创办人内容，带有商业立场，适合作为内容参考"},
+  {"name":"Dwell","base_url":"https://www.dwell.com/","entry_url":"https://www.dwell.com/bedrooms","platform":"设计与生活方式","mode":"manual","focus":"卧室场景、家具设计、海外生活方式灵感"},
+  {"name":"Design Milk","base_url":"https://design-milk.com/","platform":"设计与生活方式","mode":"manual","focus":"家具新品、设计语言、品牌空间"},
+  {"name":"Apartment Therapy","base_url":"https://www.apartmenttherapy.com/","platform":"设计与生活方式","mode":"manual","focus":"真实居住场景、卧室改造、床品体验"},
+  {"name":"ArchDaily 中文","base_url":"https://www.archdaily.cn/","platform":"设计与生活方式","mode":"manual","focus":"零售空间、家居体验、卧室设计"},
+  {"name":"源氏木语官网","base_url":"https://www.yeswood.com/","platform":"品牌官方","mode":"manual","focus":"品牌新闻、实木家具、产品与门店"},
+  {"name":"顾家家居香港官网","base_url":"https://www.kukahome.com.hk/","platform":"品牌官方","mode":"manual","focus":"品牌介绍、产品系列、海外品牌表达","note":"香港站，不能代替大陆市场当期发布资料"},
+  {"name":"顾家家居·微博","base_url":"https://weibo.com/gujiajiaju","platform":"社媒账号","mode":"manual","focus":"品牌节、联名、广告内容与官方活动"},
+  {"name":"林氏家居·微博","base_url":"https://weibo.com/linshimuye","platform":"社媒账号","mode":"manual","focus":"新品、展会、生活方式内容"},
+  {"name":"慕思官方旗舰店·微博","base_url":"https://weibo.com/u/6522705262","platform":"社媒账号","mode":"manual","focus":"床垫、睡眠节点、产品传播"},
+  {"name":"老爸评测·B站","base_url":"https://space.bilibili.com/347667464","platform":"创作者","mode":"manual","focus":"家居材料、消费品评测、用户教育","note":"平台登录与访问限制下人工查看；商业合作需单独辨识"}
+]
