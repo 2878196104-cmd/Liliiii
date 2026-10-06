@@ -214,20 +214,71 @@
     );
   }
 
+  function normalizedCaseTitle(value) {
+    return String(value || "").toLowerCase().normalize("NFKC")
+      .replace(/^(独家|首发|案例|资讯|新闻)+/g, "")
+      .replace(/[\s\p{P}\p{S}_]+/gu, "");
+  }
+
+  function titleSimilarity(left, right) {
+    const a = normalizedCaseTitle(left);
+    const b = normalizedCaseTitle(right);
+    if (!a || !b) return 0;
+    if (a === b) return 1;
+    const [shorter, longer] = [a, b].sort((x, y) => x.length - y.length);
+    if (shorter.length >= 10 && longer.includes(shorter) && shorter.length / longer.length >= 0.68) return .92;
+    if (shorter.length < 10) return 0;
+    const pairs = value => new Set([...Array(value.length - 1)].map((_, index) => value.slice(index, index + 2)));
+    const leftPairs = pairs(a);
+    const rightPairs = pairs(b);
+    const intersection = [...leftPairs].filter(value => rightPairs.has(value)).length;
+    return intersection / new Set([...leftPairs, ...rightPairs]).size;
+  }
+
+  function clusterDocuments(rows) {
+    const clusters = [];
+    rows.forEach(row => {
+      const cluster = clusters.find(item => titleSimilarity(item.primary.title, row.title) >= .82);
+      if (cluster) cluster.duplicates.push(row);
+      else clusters.push({ primary: row, duplicates: [] });
+    });
+    return clusters;
+  }
+
+  function duplicateSources(row, duplicates) {
+    const stored = Array.isArray(row.raw_payload?.duplicate_sources) ? row.raw_payload.duplicate_sources : [];
+    const live = duplicates.map(item => ({
+      source: item.sources?.name || "未知来源",
+      platform: item.sources?.platform || item.kind || "公开网页",
+      title: item.title,
+      url: item.canonical_url
+    }));
+    const unique = new Map();
+    [...live, ...stored].forEach(item => {
+      const url = safeUrl(item.url);
+      if (url && url !== safeUrl(row.canonical_url)) unique.set(url, { ...item, url });
+    });
+    return [...unique.values()];
+  }
+
   function renderDocuments() {
-    const rows = filteredDocuments();
+    const sourceRows = filteredDocuments();
+    const rows = clusterDocuments(sourceRows);
     $("documentCount").textContent = rows.length;
     $("workspaceSummary").textContent = activeView === "review"
-      ? `${rows.length} 条资料等待人工选择；采纳后自动进入看板预览。`
-      : `${rows.length} 条采集资料；当前最多显示最近 250 条。`;
-    $("documentQueue").innerHTML = rows.length ? rows.map(row => {
+      ? `${rows.length} 个案例（${sourceRows.length} 篇报道）等待人工选择。`
+      : `${rows.length} 个案例 · ${sourceRows.length} 篇报道；相似报道已自动合并。`;
+    $("documentQueue").innerHTML = rows.length ? rows.map(cluster => {
+      const row = cluster.primary;
       const url = safeUrl(row.canonical_url);
+      const alternatives = duplicateSources(row, cluster.duplicates);
       return `<article class="document-card" data-id="${escapeHtml(row.id)}">
         <div class="document-top">
           <div class="document-meta">
             <span class="status-pill status-${escapeHtml(row.processing_status || "new")}">${escapeHtml(statusLabels[row.processing_status] || row.processing_status || "待判断")}</span>
             <span>${escapeHtml(row.sources?.name || "未知来源")}</span>
           <span>${escapeHtml(row.sources?.platform || row.kind || "公开网页")}</span>
+          ${alternatives.length ? `<span class="status-pill status-accepted">已合并 ${alternatives.length + 1} 个来源</span>` : ""}
           <span>初筛 ${escapeHtml(row.raw_payload?.prefilter?.score ?? "—")} 分</span>
             <span>发布 ${escapeHtml(formatDate(row.published_at))}</span>
             <span>采集 ${escapeHtml(formatDate(row.collected_at, true))}</span>
@@ -236,6 +287,7 @@
         </div>
         <h3>${escapeHtml(row.title)}</h3>
         <p>${escapeHtml(excerpt(row.body_text) || "暂无正文摘要，可打开原文核验。")}</p>
+        ${alternatives.length ? `<div class="duplicate-sources"><strong>补充来源</strong>${alternatives.slice(0, 6).map(item => `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.source || item.platform || "其他媒体")} ↗</a>`).join("")}</div>` : ""}
         ${renderJevResult(row.raw_payload?.jev)}
         <div class="document-actions">
           ${url ? `<a class="button secondary" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">核验原文 ↗</a>` : ""}

@@ -41,6 +41,10 @@ ACTION_TERMS = {
 }
 NOISE_TERMS = {"招聘", "招标", "联系我们", "隐私政策", "用户协议", "登录", "注册", "下载app"}
 PREFERENCE_PROFILE = {"terms": {}, "sources": {}, "decisions": 0}
+TRACKING_QUERY_KEYS = {
+    "from", "ref", "source", "spm", "track", "tracking", "share", "share_source",
+    "utm_campaign", "utm_content", "utm_medium", "utm_source", "utm_term",
+}
 
 
 def fetch_bytes(url: str) -> bytes:
@@ -82,6 +86,91 @@ def xml_text(node, names):
 def clean(value: str) -> str:
     value = re.sub(r"<[^>]+>", " ", value or "")
     return re.sub(r"\s+", " ", html.unescape(value)).strip()
+
+
+def canonicalize_url(value: str) -> str:
+    """Normalize stable article identity without changing meaningful query parameters."""
+    parsed = urllib.parse.urlsplit(value or "")
+    host = (parsed.hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    port = f":{parsed.port}" if parsed.port and parsed.port not in {80, 443} else ""
+    path = re.sub(r"/{2,}", "/", parsed.path or "/")
+    if path != "/":
+        path = path.rstrip("/")
+    query = [
+        (key, item) for key, item in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+        if key.lower() not in TRACKING_QUERY_KEYS and not key.lower().startswith("utm_")
+    ]
+    return urllib.parse.urlunsplit(("https", host + port, path, urllib.parse.urlencode(sorted(query)), ""))
+
+
+def title_key(value: str) -> str:
+    value = clean(value).lower()
+    value = re.sub(r"[\W_]+", "", value, flags=re.UNICODE)
+    return re.sub(r"^(独家|首发|案例|资讯|新闻)+", "", value)
+
+
+def title_similarity(left: str, right: str) -> float:
+    left_key, right_key = title_key(left), title_key(right)
+    if not left_key or not right_key:
+        return 0.0
+    if left_key == right_key:
+        return 1.0
+    shorter, longer = sorted((left_key, right_key), key=len)
+    if len(shorter) >= 10 and shorter in longer and len(shorter) / len(longer) >= 0.68:
+        return 0.92
+    if min(len(left_key), len(right_key)) < 10:
+        return 0.0
+    left_pairs = {left_key[index:index + 2] for index in range(len(left_key) - 1)}
+    right_pairs = {right_key[index:index + 2] for index in range(len(right_key) - 1)}
+    return len(left_pairs & right_pairs) / max(1, len(left_pairs | right_pairs))
+
+
+def load_recent_documents():
+    rows = supabase(
+        "raw_documents?select=id,title,canonical_url,raw_payload,processing_status,sources(name,platform)"
+        "&order=collected_at.desc&limit=2000"
+    ) or []
+    for row in rows:
+        row["canonical_url"] = canonicalize_url(row.get("canonical_url") or "")
+    return rows
+
+
+def find_duplicate(documents, item):
+    canonical_url = canonicalize_url(item.get("url") or "")
+    for document in documents:
+        if canonical_url and document.get("canonical_url") == canonical_url:
+            return document, "same_url"
+    for document in documents:
+        if title_similarity(document.get("title") or "", item.get("title") or "") >= 0.82:
+            return document, "similar_title"
+    return None, None
+
+
+def attach_duplicate_source(document, item, source, reason):
+    raw_payload = document.get("raw_payload") or {}
+    alternatives = raw_payload.get("duplicate_sources") or []
+    item_url = canonicalize_url(item.get("url") or "")
+    if item_url and not any(canonicalize_url(entry.get("url") or "") == item_url for entry in alternatives):
+        alternatives.append({
+            "url": item_url,
+            "title": item.get("title"),
+            "source": source.get("name"),
+            "platform": source.get("platform"),
+            "published": item.get("published"),
+            "reason": reason,
+        })
+        raw_payload["duplicate_sources"] = alternatives[-20:]
+        raw_payload["dedupe"] = {
+            "version": "case-cluster-v1",
+            "last_seen_at": datetime.now(timezone.utc).isoformat(),
+        }
+        supabase(
+            f"raw_documents?id=eq.{document['id']}", method="PATCH",
+            body={"raw_payload": raw_payload}, prefer="return=minimal",
+        )
+        document["raw_payload"] = raw_payload
 
 
 def load_review_preferences():
@@ -537,6 +626,7 @@ def main():
         raise SystemExit(1)
 
     PREFERENCE_PROFILE = load_review_preferences()
+    recent_documents = load_recent_documents()
     print(json.dumps({
         "preference_learning": "active" if PREFERENCE_PROFILE["decisions"] else "waiting_for_human_decisions",
         "human_decisions": PREFERENCE_PROFILE["decisions"],
@@ -559,6 +649,12 @@ def main():
             items = collect_source(source)
             source_id = database_source["id"]
             for item in items:
+                item["url"] = canonicalize_url(item["url"])
+                duplicate, duplicate_reason = find_duplicate(recent_documents, item)
+                if duplicate:
+                    attach_duplicate_source(duplicate, item, source, duplicate_reason)
+                    skipped += 1
+                    continue
                 digest = hashlib.sha256((item["title"] + "\n" + item["body"]).encode()).hexdigest()
                 prefilter = score_item(source, item)
                 row = {
@@ -580,6 +676,14 @@ def main():
                 )
                 if result:
                     inserted += 1
+                    recent_documents.append({
+                        "id": result[0]["id"],
+                        "title": item["title"],
+                        "canonical_url": item["url"],
+                        "raw_payload": row["raw_payload"],
+                        "processing_status": row["processing_status"],
+                        "sources": {"name": source.get("name"), "platform": source.get("platform")},
+                    })
                 else:
                     skipped += 1
             supabase(
