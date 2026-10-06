@@ -130,18 +130,23 @@ Deno.serve(async (request) => {
 
   const body = await request.json().catch(() => ({}));
   const ids = Array.isArray(body.document_ids)
-    ? [...new Set(body.document_ids.filter((id: unknown) => typeof id === "string"))].slice(0, 10)
+    ? [...new Set(body.document_ids.filter((id: unknown) => typeof id === "string"))].slice(0, 100)
     : [];
-  if (!ids.length) return json({ error: "document_ids 必须包含 1–10 个资料 ID。" }, 400);
+  if (!ids.length) return json({ error: "document_ids 必须包含 1–100 个资料 ID。" }, 400);
 
   try {
     const documents = await loadDocuments(ids);
     const results = [];
     const errors = [];
-    for (const document of documents) {
-      try { results.push(await evaluate(document)); }
-      catch (error) { errors.push({ id: document.id, error: error instanceof Error ? error.message : "判断失败" }); }
-    }
+    let cursor = 0;
+    const workerCount = Math.min(6, documents.length);
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+      while (cursor < documents.length) {
+        const document = documents[cursor++];
+        try { results.push(await evaluate(document)); }
+        catch (error) { errors.push({ id: document.id, error: error instanceof Error ? error.message : "判断失败" }); }
+      }
+    }));
     return json({ requested: ids.length, completed: results.length, failed: errors.length, results, errors });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "Jev 服务异常" }, 500);

@@ -26,3 +26,5 @@ supabase functions deploy jev-evaluate
 - `status`：`pass` / `review` / `filter`
 
 Jev 不直接删除、采纳或发布资料。低置信度内容仍进入人工复核，避免模型判断覆盖原始证据与管理员决策。
+
+后台的“批量审核全部最新资料”会审核当前筛选结果（页面最多加载最近 250 条），浏览器按每批 100 条提交，Edge Function 在每批内最多并发处理 6 条。单条失败会单独记录，不会中断整批。

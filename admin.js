@@ -167,14 +167,23 @@
   }
 
   async function runJev(documentIds, trigger) {
-    const ids = [...new Set(documentIds)].filter(Boolean).slice(0, 10);
+    const ids = [...new Set(documentIds)].filter(Boolean);
     if (!ids.length) throw new Error("当前没有可判断的资料。");
     const status = $("jevRunStatus");
     if (trigger) trigger.disabled = true;
-    status.textContent = `Jev 正在判断 ${ids.length} 条资料…`;
+    let completed = 0;
+    let failed = 0;
+    const batches = [];
+    for (let index = 0; index < ids.length; index += 100) batches.push(ids.slice(index, index + 100));
+    status.textContent = `Jev 正在并发审核 ${ids.length} 条最新资料…`;
     try {
-      const result = await jevApi({ document_ids: ids });
-      status.textContent = `完成 ${result.completed || 0} 条；${result.failed || 0} 条失败。结果已写回信息源库。`;
+      for (let index = 0; index < batches.length; index += 1) {
+        const result = await jevApi({ document_ids: batches[index] });
+        completed += result.completed || 0;
+        failed += result.failed || 0;
+        status.textContent = `正在处理第 ${index + 1}/${batches.length} 批：已完成 ${completed} 条，失败 ${failed} 条…`;
+      }
+      status.textContent = `批量审核完成：成功 ${completed} 条，失败 ${failed} 条。结果已写回信息源库。`;
       await Promise.all([loadDocuments(), loadStats()]);
     } finally {
       if (trigger) trigger.disabled = false;
@@ -492,9 +501,8 @@
   $("sourceFilter").addEventListener("change", () => loadDocuments().catch(showError));
   $("refreshDocuments").addEventListener("click", () => Promise.all([loadSourceData(), loadStats(), loadDocuments()]).catch(showError));
   $("runJevBatch").addEventListener("click", event => {
-    const ids = filteredDocuments().filter(row => !row.raw_payload?.jev).slice(0, 10).map(row => row.id);
-    const fallbackIds = filteredDocuments().slice(0, 10).map(row => row.id);
-    runJev(ids.length ? ids : fallbackIds, event.currentTarget).catch(showError);
+    const ids = filteredDocuments().map(row => row.id);
+    runJev(ids, event.currentTarget).catch(showError);
   });
 
   $("documentQueue").addEventListener("click", event => {
