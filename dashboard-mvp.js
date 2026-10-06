@@ -5,7 +5,7 @@
   document.querySelector('.eyebrow').textContent='MONTHLY NOTE';
   document.querySelector('.subhead').remove();
   document.querySelector('.coverage-note')?.remove();
-  const labels={home:'行业趋势',intelligence:'品类案例库',compare:'结论证据（输出层）',sources:'信息源库'};
+  const labels={home:'行业趋势',intelligence:'月度竞品',compare:'结论证据（输出层）',sources:'信息源库'};
   if(location.protocol==='file:'){const localSources=document.createElement('script');localSources.src='local-internal-sources.js';document.head.append(localSources);}
   Object.entries(labels).forEach(([key,label])=>document.querySelector('[data-page="'+key+'"]').textContent=label);
   document.querySelector('[data-page="case"]').hidden=true;
@@ -153,15 +153,15 @@
     ]}
   ];}
   let activeBrand=null, activeDimension='product', activeStep=0, activeEvent=0;
-  let libraryMode='category', visibleLibraryEvents=[], librarySearchTimer=null;
-  const libraryFilters={query:'',category:'sleep',scope:'all',objective:'all',time:'all'};
+  let libraryMode='monthly', visibleLibraryEvents=[];
+  const libraryFilters={query:''};
   const monthOf=e=>e.reportMonth||(/^\d{4}-\d{2}/.test(e.date||'')?e.date.slice(0,7):'待归档');
   const now=new Date();
   const recentMonths=Array.from({length:12},(_,offset)=>{
     const date=new Date(now.getFullYear(),now.getMonth()-offset,1);
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
   });
-  let activeReportMonth=recentMonths[0];
+  let activeReportMonth=(state.events||[]).map(monthOf).filter(month=>/^\d{4}-\d{2}$/.test(month)).sort().reverse()[0]||recentMonths[0];
   const monthLabel=value=>value==='待归档'?'待归档':`${Number(value.slice(5,7))}月月报`;
   const channelGroups=[
     {key:'ecommerce',label:'电商 IP',pattern:/电商|天猫|淘宝|京东|618|双11|双十一|旗舰店|平台日|平台新品|新品季|大促|店铺促销|即时零售/},
@@ -234,18 +234,21 @@
   };
   function filteredLibraryEvents(){
     const query=libraryFilters.query.trim().toLowerCase();
+    if(!query)return [];
+    const terms=query.split(/[\s，、,]+/).filter(Boolean);
     return (state.events||[]).filter(e=>{
       const c=classifyCase(e);
-      return (!query||eventText(e).toLowerCase().includes(query))&&(libraryFilters.category==='all'||c.category===libraryFilters.category)&&(libraryFilters.scope==='all'||c.scope===libraryFilters.scope)&&(libraryFilters.objective==='all'||c.objective===libraryFilters.objective)&&inTimeRange(e,libraryFilters.time);
+      const searchable=[eventText(e),categoryLabels[c.category],objectiveLabels[c.objective]].join(' ').toLowerCase();
+      return terms.every(term=>searchable.includes(term));
     });
   }
   function renderLibraryCards(events){
-    if(!events.length)return '<section class="card panel monthly-empty"><strong>暂时没有匹配案例</strong><p>可放宽品类、任务或时间范围；新资料通过审核后也会继续进入这里。</p></section>';
+    if(!events.length)return '<section class="card panel monthly-empty"><strong>当前已收录案例中没有匹配结果</strong><p>试试更短的主题词，例如“睡眠”或“品牌日”。专题检索覆盖已收录案例，新资料审核发布后会加入结果。</p></section>';
     return '<section class="category-case-grid">'+events.map(event=>{const c=classifyCase(event);return '<button class="category-case-card" data-library-brand="'+safe(event.brand)+'" data-library-event="'+safe(event.event)+'"><small>'+safe(event.date||'待确认')+' · '+safe(event.brand||'待归类')+'</small><h3>'+safe(event.event||event.theme||'未命名案例')+'</h3><p>'+safe(activityOverview(event))+'</p><div><span>'+safe(categoryLabels[c.category])+'</span><span>'+safe(scopeLabels[c.scope])+'</span><span>'+safe(objectiveLabels[c.objective])+'</span></div><em>查看案例拆解 →</em></button>';}).join('')+'</section>';
   }
   function renderLibraryFilters(){
-    const option=(value,label,current)=>'<option value="'+value+'" '+(value===current?'selected':'')+'>'+label+'</option>';
-    return '<div class="category-library-controls"><div class="category-view-switch"><button data-library-mode="category" class="'+(libraryMode==='category'?'active':'')+'">品类案例</button><button data-library-mode="monthly" class="'+(libraryMode==='monthly'?'active':'')+'">月度竞品</button></div><div class="category-filter-row"><input type="search" data-library-query placeholder="搜索睡眠、助眠、营销节点…" value="'+safe(libraryFilters.query)+'"><select data-library-filter="category">'+option('all','全部品类',libraryFilters.category)+option('sleep','睡眠',libraryFilters.category)+option('home','家居',libraryFilters.category)+option('health_wellness','健康疗愈',libraryFilters.category)+option('lifestyle','生活方式',libraryFilters.category)+option('other','其他',libraryFilters.category)+'</select><select data-library-filter="scope">'+option('all','全部参考',libraryFilters.scope)+option('category_reference','品类参考',libraryFilters.scope)+option('direct_competitor','直接竞品',libraryFilters.scope)+option('cross_category_inspiration','跨界灵感',libraryFilters.scope)+'</select><select data-library-filter="objective">'+option('all','全部营销任务',libraryFilters.objective)+option('product_launch','新品上市',libraryFilters.objective)+option('brand_building','品牌心智',libraryFilters.objective)+option('seasonal_campaign','节点营销',libraryFilters.objective)+option('consumer_education','用户教育',libraryFilters.objective)+option('conversion','渠道转化',libraryFilters.objective)+option('community','社群经营',libraryFilters.objective)+'</select><select data-library-filter="time">'+option('all','全部时间',libraryFilters.time)+option('30','近30天',libraryFilters.time)+option('90','近90天',libraryFilters.time)+option('365','近一年',libraryFilters.time)+'</select></div></div>';
+    if(libraryMode==='monthly')return '';
+    return '<section class="category-library-controls research-controls"><form data-research-form><label for="researchTheme">研究主题</label><div class="research-search-row"><input id="researchTheme" type="search" data-library-query placeholder="例如：睡眠、品牌日、门店体验" value="'+safe(libraryFilters.query)+'"><button type="submit">查找参考</button></div></form><div class="research-topic-row"><span>快速开始</span>'+['睡眠','新品上市','品牌日','门店'].map(topic=>'<button data-research-topic="'+topic+'">'+topic+'</button>').join('')+'</div></section>';
   }
   function renderMonthly(){
     const allEvents=state.events||[];
@@ -255,14 +258,14 @@
     visibleLibraryEvents=events;
     const brands=[...new Set(events.map(e=>e.brand))];
     if(!brands.includes(activeBrand))activeBrand=null;
-    const heading=libraryMode==='monthly'?'<div class="section-index">MONTHLY COMPETITOR REVIEW</div><h2>'+monthLabel(activeReportMonth)+'竞品分析</h2>':'<div class="section-index">CATEGORY MARKETING LIBRARY</div><h2>品类营销案例库</h2><p>围绕品类、营销任务和参考范围找案例；当前优先展示睡眠类目。</p>';
+    const heading=libraryMode==='monthly'?'<div class="section-index">MONTHLY COMPETITOR REVIEW</div><h2>'+safe(activeReportMonth.slice(0,4))+'年'+Number(activeReportMonth.slice(5,7))+'月竞品分析</h2><p>常规跟踪：按月份查看品牌动作、渠道与案例拆解。</p>':'<div class="section-index">PROJECT RESEARCH</div><h2>专题研究</h2><p>为季度方案或专项活动寻找参考，先输入这次要研究的主题。</p>';
     const monthPicker=libraryMode==='monthly'?'<label class="monthly-report-picker">查看月报<select class="select" data-report-month>'+available.map(month=>'<option value="'+safe(month)+'" '+(month===activeReportMonth?'selected':'')+'>'+safe(monthLabel(month))+' · '+safe(month)+'</option>').join('')+'</select></label>':'';
-    const mainContent=libraryMode==='monthly'?(renderTrendCards(events)+(events.length?renderChannelMatrix(events,brands):'<section class="card panel monthly-empty"><strong>'+monthLabel(activeReportMonth)+'尚未形成已发布案例</strong><p>资料仍可继续采集、审核和补充。</p></section>')):('<div class="category-result-head"><strong>'+events.length+' 个匹配案例</strong><span>旧案例已用关键词补齐分类；Jev 复审后会替换为模型结构化标签。</span></div>'+renderLibraryCards(events));
+    const mainContent=libraryMode==='monthly'?(renderTrendCards(events)+(events.length?renderChannelMatrix(events,brands):'<section class="card panel monthly-empty"><strong>'+monthLabel(activeReportMonth)+'尚未形成已发布案例</strong><p>资料仍可继续采集、审核和补充。</p></section>')):(libraryFilters.query.trim()?'<div class="category-result-head"><strong>“'+safe(libraryFilters.query.trim())+'” · '+events.length+' 个参考案例</strong><span>检索全部历史已收录案例</span></div>'+renderLibraryCards(events):'<section class="card panel research-start"><h3>这次方案需要研究什么？</h3><p>例如睡眠品牌节、新品上市或门店体验。输入主题后，再从案例中寻找可借鉴的做法。</p></section>');
     pane.innerHTML='<div class="monthly-report-toolbar"><div>'+heading+'</div>'+monthPicker+'</div>'+renderLibraryFilters()+mainContent+'<section class="monthly-case-layer"><div class="monthly-layer-label"><div><div class="section-index">案例拆解</div><h2>点击案例，进入证据与策略拆解</h2></div><p>沿用原有案例结构与来源链，不改变已核验内容。</p></div><div class="monthly-dimensions" id="monthlyReader" aria-live="polite"></div></section>'+(libraryMode==='monthly'?'<p class="note monthly-archive-note">月报按事件发生月份归档；历史月份不会被后续月份覆盖。</p>':'');
     pane.querySelector('[data-report-month]')?.addEventListener('change',event=>{activeReportMonth=event.target.value;activeBrand=null;activeEvent=0;renderMonthly();});
     pane.querySelectorAll('[data-library-mode]').forEach(button=>button.onclick=()=>{libraryMode=button.dataset.libraryMode;if(libraryMode==='monthly'&&!allEvents.some(event=>monthOf(event)===activeReportMonth)){activeReportMonth=allEvents.map(monthOf).filter(month=>/^\d{4}-\d{2}$/.test(month)).sort().reverse()[0]||activeReportMonth;}activeBrand=null;activeEvent=0;renderMonthly();});
-    pane.querySelector('[data-library-query]')?.addEventListener('input',event=>{libraryFilters.query=event.target.value;clearTimeout(librarySearchTimer);librarySearchTimer=setTimeout(()=>{activeBrand=null;renderMonthly();const field=pane.querySelector('[data-library-query]');field?.focus();field?.setSelectionRange(field.value.length,field.value.length);},250);});
-    pane.querySelectorAll('[data-library-filter]').forEach(select=>select.onchange=()=>{libraryFilters[select.dataset.libraryFilter]=select.value;activeBrand=null;activeEvent=0;renderMonthly();});
+    pane.querySelector('[data-research-form]')?.addEventListener('submit',event=>{event.preventDefault();libraryFilters.query=pane.querySelector('[data-library-query]').value.trim();activeBrand=null;activeEvent=0;renderMonthly();});
+    pane.querySelectorAll('[data-research-topic]').forEach(button=>button.onclick=()=>{libraryFilters.query=button.dataset.researchTopic;activeBrand=null;activeEvent=0;renderMonthly();});
     pane.querySelectorAll('[data-matrix-brand],[data-library-brand]').forEach(button=>button.onclick=()=>{
       activeBrand=button.dataset.matrixBrand||button.dataset.libraryBrand;activeDimension='product';activeStep=0;activeEvent=0;
       const selectedEvent=button.dataset.matrixEvent||button.dataset.libraryEvent;
@@ -338,8 +341,11 @@
     host.querySelector('.monthly-event-select')?.addEventListener('change',ev=>{activeEvent=Number(ev.target.value);activeStep=0;renderReader();});
   }
   const p3=document.querySelector('#page-compare');[...p3.children].forEach(el=>el.classList.add('retired-module'));
-  document.querySelector('.nav [data-page="intelligence"]').addEventListener('click',renderMonthly);
+  const monthlyNav=document.querySelector('.nav [data-page="intelligence"]');
+  const researchNav=document.createElement('button');researchNav.type='button';researchNav.dataset.page='research';researchNav.textContent='专题研究';researchNav.setAttribute('aria-selected','false');monthlyNav.after(researchNav);
+  monthlyNav.addEventListener('click',()=>{libraryMode='monthly';activeBrand=null;renderMonthly();});
+  researchNav.addEventListener('click',()=>{libraryMode='category';activeBrand=null;document.querySelectorAll('.nav button').forEach(button=>button.setAttribute('aria-selected',String(button===researchNav)));document.querySelectorAll('.page').forEach(page=>page.classList.toggle('active',page===p2));renderMonthly();});
   window.addEventListener('monthly-know:data-ready', renderMonthly);
   renderMonthly();
-  document.querySelector('[data-page="home"]').click();
+  monthlyNav.click();
 })();
