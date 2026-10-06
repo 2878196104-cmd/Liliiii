@@ -9,6 +9,13 @@
   let sourceConfig = [];
   let statsRows = [];
   let events = [];
+  const activePool = () => $("poolFilter").value;
+  function documentPools(row) {
+    if (Array.isArray(row.raw_payload?.pools)) return row.raw_payload.pools;
+    const sourceName = row.sources?.name || sourceRows.find(source => source.id === row.source_id)?.name;
+    return sourceConfig.find(source => source.name === sourceName)?.pools || ["competitor"];
+  }
+  const inPool = row => documentPools(row).includes(activePool());
 
   const statusLabels = {
     new: "待审核",
@@ -83,15 +90,19 @@
   }
 
   async function loadSourceData() {
-    const [rows, configResponse] = await Promise.all([
+    const [rows, configResponse, researchConfig] = await Promise.all([
       api("/rest/v1/sources?select=id,name,base_url,platform,enabled,collection_interval_minutes,last_collected_at&order=name"),
-      fetch("config/sources.json", { cache: "no-store" }).then(response => response.ok ? response.json() : [])
+      fetch("config/sources.json", { cache: "no-store" }).then(response => response.ok ? response.json() : []),
+      fetch("config/research-sources.json", { cache: "no-store" }).then(response => response.ok ? response.json() : [])
     ]);
     sourceRows = rows || [];
-    sourceConfig = Array.isArray(configResponse) ? configResponse : [];
+    sourceConfig = [...(Array.isArray(configResponse) ? configResponse : []), ...(Array.isArray(researchConfig) ? researchConfig : [])];
+    renderSourceFilter();
+  }
+  function renderSourceFilter() {
     const select = $("sourceFilter");
     const current = select.value;
-    select.innerHTML = '<option value="all">全部来源</option>' + sourceRows.map(row =>
+    select.innerHTML = '<option value="all">全部来源</option>' + sourceRows.filter(row => (sourceConfig.find(source => source.name === row.name)?.pools || ["competitor"]).includes(activePool())).map(row =>
       `<option value="${escapeHtml(row.id)}">${escapeHtml(row.name)}</option>`
     ).join("");
     if ([...select.options].some(option => option.value === current)) select.value = current;
@@ -99,11 +110,15 @@
 
   async function loadStats() {
     statsRows = await api("/rest/v1/raw_documents?select=source_id,processing_status,raw_payload&order=collected_at.desc&limit=1000");
-    const counts = statsRows.reduce((map, row) => {
+    renderStats();
+  }
+  function renderStats() {
+    const poolRows = statsRows.filter(inPool);
+    const counts = poolRows.reduce((map, row) => {
       map[row.processing_status || "new"] = (map[row.processing_status || "new"] || 0) + 1;
       return map;
     }, {});
-    const reviewed = statsRows.filter(row => row.raw_payload?.review_feedback);
+    const reviewed = poolRows.filter(row => row.raw_payload?.review_feedback);
     const acceptedFeedback = reviewed.filter(row => row.raw_payload.review_feedback.decision === "accepted").length;
     const ignoredFeedback = reviewed.filter(row => row.raw_payload.review_feedback.decision === "ignored").length;
     const cards = [
@@ -121,7 +136,7 @@
   }
 
   function renderJevSummary() {
-    const results = statsRows.map(row => row.raw_payload?.jev).filter(Boolean);
+    const results = statsRows.filter(inPool).map(row => row.raw_payload?.jev).filter(Boolean);
     const passed = results.filter(item => item.status === "pass").length;
     const review = results.filter(item => item.status === "review").length;
     const filtered = results.filter(item => item.status === "filter").length;
@@ -226,7 +241,7 @@
   async function loadDocuments() {
     const status = currentDocumentStatus();
     const sourceId = $("sourceFilter").value;
-    let path = "/rest/v1/raw_documents?select=id,source_id,title,body_text,canonical_url,published_at,collected_at,processing_status,kind,raw_payload,sources(name,platform,trust_level)&order=collected_at.desc&limit=250";
+    let path = "/rest/v1/raw_documents?select=id,source_id,title,body_text,canonical_url,published_at,collected_at,processing_status,kind,raw_payload,sources(name,platform,trust_level)&order=collected_at.desc&limit=1000";
     if (status === "reviewable") path += "&processing_status=in.(new,needs_review)";
     else if (status !== "all") path += `&processing_status=eq.${encodeURIComponent(status)}`;
     if (sourceId !== "all") path += `&source_id=eq.${encodeURIComponent(sourceId)}`;
@@ -248,9 +263,9 @@
       const categoryOk = category === "all" || classification.category === category;
       const scopeOk = scope === "all" || classification.reference_scope === scope;
       const objectiveOk = objective === "all" || classification.marketing_objective === objective;
-      const date = new Date(row.published_at || row.collected_at || "");
-      const timeOk = !cutoff || (!Number.isNaN(date.getTime()) && date >= cutoff);
-      return searchOk && categoryOk && scopeOk && objectiveOk && timeOk;
+      const date = new Date(row.published_at || (activePool() === "research" ? "invalid" : row.collected_at) || "");
+      const timeOk = !cutoff || (!Number.isNaN(date.getTime()) && date >= cutoff && date <= new Date());
+      return inPool(row) && searchOk && categoryOk && scopeOk && objectiveOk && timeOk;
     });
   }
 
@@ -373,7 +388,15 @@
 
   async function createCandidateEvent(row) {
     const existing = await api(`/rest/v1/event_evidence?select=event_id&document_id=eq.${encodeURIComponent(row.id)}&limit=1`);
-    if (existing.length) return existing[0].event_id;
+    if (existing.length) {
+      const eventId = existing[0].event_id;
+      const previous = await api(`/rest/v1/events?select=created_by&id=eq.${encodeURIComponent(eventId)}`);
+      const previousPool = previous[0]?.created_by === "admin-research" ? "research" : "competitor";
+      if (previousPool !== activePool() && previous[0]?.created_by !== "admin-both") {
+        await api(`/rest/v1/events?id=eq.${encodeURIComponent(eventId)}`, {method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({created_by:"admin-both"})});
+      }
+      return eventId;
+    }
     const score = Number(row.raw_payload?.prefilter?.score || 50);
     const topicHits = row.raw_payload?.prefilter?.topic_hits || [];
     const valueHits = row.raw_payload?.prefilter?.value_hits || [];
@@ -390,12 +413,12 @@
         purpose: inferPurpose(row),
         product_strategy: /新品|产品|材料|工艺|睡眠|沙发|床垫/.test(`${row.title} ${row.body_text}`) ? excerpt(row.body_text, 180) : null,
         core_strategy: `围绕“${theme}”形成${eventType}表达，需在预览中结合证据校正。`,
-        actions: valueHits.slice(0, 6),
+        actions: [...valueHits.slice(0, 6), ...(safeUrl(row.canonical_url) ? [`原文：${safeUrl(row.canonical_url)}`] : [])],
         channels: inferChannels(row),
         happened_at: row.published_at,
         status: "pending",
         confidence: Math.max(0, Math.min(1, score / 100)),
-        created_by: "admin-accepted-document"
+        created_by: activePool() === "research" ? "admin-research" : "admin-accepted-document"
       })
     });
     const event = created[0];
@@ -461,7 +484,8 @@
   }
 
   async function loadQueue() {
-    events = await api(`/rest/v1/events?select=id,title,event_type,theme,summary,purpose,product_strategy,core_strategy,actions,channels,happened_at,status,confidence,brands(name),event_evidence(document_id,quote_text,raw_documents(title,canonical_url,body_text,sources(name)))&status=eq.${activeEventStatus}&order=created_at.desc&limit=100`);
+    const poolQuery = activePool() === "research" ? "&created_by=in.(admin-research,admin-both)" : "&or=(created_by.is.null,created_by.neq.admin-research)";
+    events = await api(`/rest/v1/events?select=id,title,event_type,theme,summary,purpose,product_strategy,core_strategy,actions,channels,happened_at,status,confidence,created_by,brands(name),event_evidence(document_id,quote_text,raw_documents(title,canonical_url,body_text,sources(name)))&status=eq.${activeEventStatus}${poolQuery}&order=created_at.desc&limit=100`);
     $("workspaceSummary").textContent = `${events.length} 条事件 · 当前状态：${activeEventStatus}`;
     $("eventQueue").innerHTML = events.length ? events.map(row => `
       <article class="event-card" data-id="${escapeHtml(row.id)}">
@@ -513,7 +537,7 @@
 
   function mergedSources() {
     const databaseMap = new Map(sourceRows.map(row => [row.name, row]));
-    return sourceConfig.map(item => ({ ...item, database: databaseMap.get(item.name) || null }));
+    return sourceConfig.filter(item => (item.pools || ["competitor"]).includes(activePool())).map(item => ({ ...item, database: databaseMap.get(item.name) || null }));
   }
 
   function renderSources() {
@@ -524,17 +548,19 @@
       const db = item.database;
       const url = safeUrl(item.entry_url || item.base_url);
       const effectiveEnabled = db?.enabled ?? item.enabled;
-      const state = !effectiveEnabled ? "已暂停" : db ? "已接通" : "待适配";
+      const state = !effectiveEnabled ? "已暂停" : item.mode === "manual" ? "人工核验入口" : db?.last_collected_at ? "已运行采集" : "待采集验证";
       const sourceStats = statsRows.filter(row => row.source_id === db?.id);
       const useful = sourceStats.filter(row => ["new", "needs_review", "accepted"].includes(row.processing_status)).length;
       const rate = sourceStats.length ? Math.round(useful / sourceStats.length * 100) : 0;
       return `<article class="source-card">
         <div class="source-card-head"><span class="status-pill ${db ? "status-accepted" : "status-needs_review"}">${state}</span><small>${escapeHtml(item.platform || "其他来源")}</small></div>
         <h3>${escapeHtml(item.name)}</h3>
+        ${item.focus ? `<p>${escapeHtml(item.focus)}</p>` : ""}
+        ${item.note ? `<p>${escapeHtml(item.note)}</p>` : ""}
         <p>${db?.last_collected_at ? "最近成功：" + escapeHtml(formatDate(db.last_collected_at, true)) : "尚无成功采集时间"}</p>
         <p class="source-quality">近批资料 ${sourceStats.length} 条 · 初筛保留率 ${rate}%</p>
         <div class="source-foot"><span>每 ${escapeHtml(db?.collection_interval_minutes || item.collection_interval_minutes || 360)} 分钟</span>${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">打开来源 ↗</a>` : ""}</div>
-        ${db ? `<button class="source-toggle secondary" data-source-id="${escapeHtml(db.id)}" data-source-enabled="${effectiveEnabled ? "false" : "true"}">${effectiveEnabled ? "暂停采集" : "恢复采集"}</button>` : ""}
+        ${db && item.mode !== "manual" ? `<button class="source-toggle secondary" data-source-id="${escapeHtml(db.id)}" data-source-enabled="${effectiveEnabled ? "false" : "true"}">${effectiveEnabled ? "暂停采集" : "恢复采集"}</button>` : ""}
       </article>`;
     }).join("");
   }
@@ -570,6 +596,14 @@
     checkJevConnection();
     await activateView("inbox");
   }
+
+  $("poolFilter").addEventListener("change", () => {
+    $("poolHint").textContent = activePool() === "research" ? "专题研究池：近两年资料为主；采纳后发布到专题研究，不自动进入月报。" : "常规竞品池：按月跟踪重点品牌，不混入专题跨界资料。";
+    $("timeFilter").value = activePool() === "research" ? "730" : "all";
+    $("sourceFilter").value = "all";
+    renderSourceFilter();
+    renderStats(); activateView(activeView).catch(showError);
+  });
 
   $("loginForm").addEventListener("submit", async event => {
     event.preventDefault();

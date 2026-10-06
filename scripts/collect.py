@@ -49,6 +49,7 @@ TRACKING_QUERY_KEYS = {
 
 
 def fetch_bytes(url: str) -> bytes:
+    url = urllib.parse.quote(url, safe=":/?=&%+#")
     req = urllib.request.Request(
         url,
         headers={
@@ -151,6 +152,10 @@ def find_duplicate(documents, item):
 
 def attach_duplicate_source(document, item, source, reason):
     raw_payload = document.get("raw_payload") or {}
+    previous_pools = raw_payload.get("pools", ["competitor"])
+    pools = list(dict.fromkeys(previous_pools + source.get("pools", ["competitor"])))
+    pools_changed = pools != previous_pools
+    raw_payload["pools"] = pools
     alternatives = raw_payload.get("duplicate_sources") or []
     item_url = canonicalize_url(item.get("url") or "")
     if item_url and not any(canonicalize_url(entry.get("url") or "") == item_url for entry in alternatives):
@@ -171,6 +176,10 @@ def attach_duplicate_source(document, item, source, reason):
             f"raw_documents?id=eq.{document['id']}", method="PATCH",
             body={"raw_payload": raw_payload}, prefer="return=minimal",
         )
+        document["raw_payload"] = raw_payload
+    elif pools_changed:
+        supabase(f"raw_documents?id=eq.{document['id']}", method="PATCH",
+                 body={"raw_payload": raw_payload}, prefer="return=minimal")
         document["raw_payload"] = raw_payload
 
 
@@ -359,6 +368,7 @@ class ArticleParser(HTMLParser):
         self.title_parts = []
         self.h1_parts = []
         self.body_parts = []
+        self.visible_parts = []
 
     def handle_starttag(self, tag, attrs):
         tag = tag.lower()
@@ -395,6 +405,7 @@ class ArticleParser(HTMLParser):
         value = clean(data)
         if not value:
             return
+        self.visible_parts.append(value)
         if self.in_title:
             self.title_parts.append(value)
         if self.in_h1:
@@ -444,16 +455,16 @@ def parse_public_index(source):
                 or " ".join(article.title_parts)
             )
             body = clean(
-                article.meta.get("description")
+                " ".join(article.body_parts[:80])
+                or article.meta.get("description")
                 or article.meta.get("og:description")
-                or " ".join(article.body_parts[:80])
             )[:12000]
             published = normalized_date(
                 article.meta.get("article:published_time")
                 or article.meta.get("pubdate")
                 or article.meta.get("publishdate")
                 or article.meta.get("date")
-                or body[:300]
+                or " ".join(article.visible_parts[:50])
             )
             keywords = source.get("keywords", [])
             haystack = f"{title} {body}"
@@ -477,6 +488,12 @@ def collect_source(source):
         return list(parse_feed(fetch_bytes(source["feed_url"])))
     if mode == "html":
         return list(parse_public_index(source))
+    if mode == "curated":
+        cases = json.loads(Path(source["data_file"]).read_text("utf-8"))
+        return [{"title": item["brand"] + "：" + item["title"], "url": item["url"],
+                 "body": item["summary"] + "\n借鉴（待验证）：" + item["idea"] + "\n边界：" + item["limits"],
+                 "published": item["date"] + "T00:00:00+08:00", "kind": "research_summary",
+                 "research": item} for item in cases]
     raise ValueError(f"Unsupported source mode: {mode}")
 
 
@@ -524,6 +541,8 @@ def rescore_existing():
         }
         prefilter = score_item(source, item)
         raw_payload = row.get("raw_payload") or {}
+        if row.get("kind") == "research_summary":
+            prefilter["status"] = "needs_review"
         if row.get("processing_status") != prefilter["status"] or raw_payload.get("prefilter") != prefilter:
             raw_payload["prefilter"] = prefilter
             supabase(
@@ -583,7 +602,7 @@ def backfill_accepted_events():
                 "happened_at": document.get("published_at"),
                 "status": "pending",
                 "confidence": max(0, min(1, float(score) / 100)),
-                "created_by": "accepted-document-backfill",
+                "created_by": "admin-research" if "research" in (document.get("raw_payload") or {}).get("pools", []) and "competitor" not in (document.get("raw_payload") or {}).get("pools", []) else "accepted-document-backfill",
             }],
             prefer="return=representation",
         )
@@ -609,6 +628,9 @@ def main():
         raise SystemExit(f"Missing {SOURCE_FILE}")
 
     sources = [item for item in json.loads(SOURCE_FILE.read_text("utf-8")) if item.get("enabled")]
+    research_file = SOURCE_FILE.with_name("research-sources.json")
+    if research_file.exists():
+        sources = [item for item in json.loads(research_file.read_text("utf-8")) if item.get("enabled")] + sources
     print(json.dumps({
         "preflight": "starting",
         "secret_key_format": "sb_secret" if SERVICE_KEY.startswith("sb_secret_") else "legacy_or_unknown",
@@ -639,6 +661,9 @@ def main():
     for source in sources:
         try:
             database_source = prepare_source(source)
+            if source.get("mode") == "manual":
+                print(json.dumps({"source": source["name"], "status": "registered_manual"}, ensure_ascii=False))
+                continue
             if not database_source.get("enabled", True):
                 paused_sources += 1
                 print(json.dumps({"source": source["name"], "status": "paused"}, ensure_ascii=False))
@@ -658,6 +683,8 @@ def main():
                     continue
                 digest = hashlib.sha256((item["title"] + "\n" + item["body"]).encode()).hexdigest()
                 prefilter = score_item(source, item)
+                if source.get("mode") == "curated":
+                    prefilter["status"] = "needs_review"
                 row = {
                     "source_id": source_id,
                     "canonical_url": item["url"],
@@ -666,7 +693,7 @@ def main():
                     "published_at": item["published"],
                     "content_hash": digest,
                     "kind": item["kind"],
-                    "raw_payload": {**item, "prefilter": prefilter},
+                    "raw_payload": {**item, "prefilter": prefilter, "pools": source.get("pools", ["competitor"])},
                     "processing_status": prefilter["status"],
                 }
                 result = supabase(

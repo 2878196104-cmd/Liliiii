@@ -5,7 +5,7 @@
   document.querySelector('.eyebrow').textContent='MONTHLY NOTE';
   document.querySelector('.subhead').remove();
   document.querySelector('.coverage-note')?.remove();
-  const labels={home:'行业趋势',intelligence:'月度竞品',compare:'结论证据（输出层）',sources:'信息源库'};
+  const labels={home:'行业趋势',intelligence:'阅读竞品',compare:'结论证据',sources:'信息源库'};
   if(location.protocol==='file:'){const localSources=document.createElement('script');localSources.src='local-internal-sources.js';document.head.append(localSources);}
   Object.entries(labels).forEach(([key,label])=>document.querySelector('[data-page="'+key+'"]').textContent=label);
   document.querySelector('[data-page="case"]').hidden=true;
@@ -251,7 +251,8 @@
     return '<section class="category-library-controls research-controls"><form data-research-form><label for="researchTheme">研究主题</label><div class="research-search-row"><input id="researchTheme" type="search" data-library-query placeholder="例如：睡眠、品牌日、门店体验" value="'+safe(libraryFilters.query)+'"><button type="submit">查找参考</button></div></form><div class="research-topic-row"><span>快速开始</span>'+['睡眠','新品上市','品牌日','门店'].map(topic=>'<button data-research-topic="'+topic+'">'+topic+'</button>').join('')+'</div></section>';
   }
   function renderMonthly(){
-    const allEvents=state.events||[];
+    if(libraryMode==='category'){window.MONTHLY_RESEARCH.render(pane,state.events||[]);return;}
+    const allEvents=(state.events||[]).filter(event=>event.pool!=='research');
     const available=[...new Set([...recentMonths,...allEvents.map(monthOf)])];
     if(!available.includes(activeReportMonth))activeReportMonth=available[0];
     const events=libraryMode==='monthly'?allEvents.filter(event=>monthOf(event)===activeReportMonth):filteredLibraryEvents();
@@ -342,7 +343,7 @@
   }
   const p3=document.querySelector('#page-compare');[...p3.children].forEach(el=>el.classList.add('retired-module'));
   const monthlyNav=document.querySelector('.nav [data-page="intelligence"]');
-  const researchNav=document.createElement('button');researchNav.type='button';researchNav.dataset.page='research';researchNav.textContent='专题研究';researchNav.setAttribute('aria-selected','false');monthlyNav.after(researchNav);
+  const researchNav=document.createElement('button');researchNav.type='button';researchNav.dataset.page='research';researchNav.textContent='专题研究';researchNav.setAttribute('aria-selected','false');document.querySelector('.nav [data-page="sources"]').before(researchNav);
   monthlyNav.addEventListener('click',()=>{libraryMode='monthly';activeBrand=null;renderMonthly();});
   researchNav.addEventListener('click',()=>{libraryMode='category';activeBrand=null;document.querySelectorAll('.nav button').forEach(button=>button.setAttribute('aria-selected',String(button===researchNav)));document.querySelectorAll('.page').forEach(page=>page.classList.toggle('active',page===p2));renderMonthly();});
   window.addEventListener('monthly-know:data-ready', renderMonthly);

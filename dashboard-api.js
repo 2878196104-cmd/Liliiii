@@ -36,6 +36,8 @@
     const date = row.happened_at ? row.happened_at.slice(0, 10) : "待确认";
     return {
       id: row.id,
+      pool: row.created_by === 'admin-research' ? 'research' : row.created_by === 'admin-both' ? 'both' : 'competitor',
+      sourceUrl: (row.actions || []).find(value => String(value).startsWith('原文：'))?.slice(3) || '',
       brand: row.brand || "待归类",
       event: row.title,
       date,
@@ -48,7 +50,7 @@
       purpose: row.purpose || "",
       productStrategy: row.product_strategy || "",
       coreStrategy: row.core_strategy || "",
-      actions: row.actions || [],
+      actions: (row.actions || []).filter(value => !String(value).startsWith('原文：')),
       channels: row.channels || [],
       result: row.summary || "",
       source: "Monthly Know 数据库",
@@ -100,7 +102,8 @@
     status("正在同步", "loading");
     try {
       const events = await query("approved_events?select=*&order=happened_at.desc&limit=250");
-      state.events = mergeEvents(events);
+      window.MONTHLY_RESEARCH_EVENTS = events.map(mapEvent).filter(event => ['research','both'].includes(event.pool));
+      state.events = mergeEvents(events.filter(row => row.created_by !== 'admin-research'));
       render();
       status(`历史研究 ${baselineEvents.length} 条 · 新发布 ${events.length} 条`, "live");
       window.dispatchEvent(new CustomEvent("monthly-know:data-ready", {

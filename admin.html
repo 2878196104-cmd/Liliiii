@@ -52,6 +52,7 @@
         <button data-view="sources"><span>04</span>信息源管理</button>
       </nav>
 
+      <div class="toolbar"><label>当前信息池<select id="poolFilter"><option value="competitor">常规竞品 · 月度跟踪</option><option value="research">专题研究 · 近两年参考</option></select></label><p id="poolHint">常规竞品池：采集、审核与发布均按当前池显示。</p></div>
       <section class="stats-grid" id="statsGrid" aria-label="采集概览"></section>
       <p class="preference-note" id="preferenceNote"></p>
 
@@ -104,7 +105,7 @@
             <select id="objectiveFilter"><option value="all">全部任务</option><option value="product_launch">新品上市</option><option value="brand_building">品牌心智</option><option value="seasonal_campaign">节点营销</option><option value="consumer_education">用户教育</option><option value="conversion">渠道转化</option><option value="community">社群经营</option></select>
           </label>
           <label>时间
-            <select id="timeFilter"><option value="all">全部时间</option><option value="30">近30天</option><option value="90">近90天</option><option value="365">近一年</option></select>
+            <select id="timeFilter"><option value="all">全部时间</option><option value="30">近30天</option><option value="90">近90天</option><option value="365">近一年</option><option value="730">近两年</option></select>
           </label>
           <button id="refreshDocuments" class="button secondary">刷新</button>
         </div>
@@ -145,6 +146,6 @@
   </dialog>
 
   <script src="runtime-config.js"></script>
-  <script src="admin.js?v=20261006-4"></script>
+  <script src="admin.js?v=20261006-5"></script>
 </body>
 </html>
