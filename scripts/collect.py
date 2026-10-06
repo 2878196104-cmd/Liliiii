@@ -492,7 +492,7 @@ def collect_source(source):
         cases = json.loads(Path(source["data_file"]).read_text("utf-8"))
         return [{"title": item["brand"] + "：" + item["title"], "url": item["url"],
                  "body": item["summary"] + "\n借鉴（待验证）：" + item["idea"] + "\n边界：" + item["limits"],
-                 "published": item["date"] + "T00:00:00+08:00", "kind": "research_summary",
+                 "published": item["date"] + "T00:00:00+08:00", "kind": "article",
                  "research": item} for item in cases]
     raise ValueError(f"Unsupported source mode: {mode}")
 
@@ -541,7 +541,7 @@ def rescore_existing():
         }
         prefilter = score_item(source, item)
         raw_payload = row.get("raw_payload") or {}
-        if row.get("kind") == "research_summary":
+        if raw_payload.get("research"):
             prefilter["status"] = "needs_review"
         if row.get("processing_status") != prefilter["status"] or raw_payload.get("prefilter") != prefilter:
             raw_payload["prefilter"] = prefilter
