@@ -185,6 +185,15 @@
     return date>=new Date(Date.now()-Number(range)*86400000);
   }
   const eventChannels=e=>channelGroups.filter(group=>group.pattern.test(eventText(e))).map(group=>group.key);
+  function primaryChannel(event){
+    if(channelGroups.some(group=>group.key===event.primaryChannel))return event.primaryChannel;
+    // Classify the actual action first; explanatory copy must not create another card.
+    const headline=[event.type,event.event].filter(Boolean).join(' ');
+    const direct=channelGroups.find(group=>group.pattern.test(headline));
+    if(direct)return direct.key;
+    const declared=channelGroups.find(group=>group.pattern.test((event.channels||[]).join(' ')));
+    return declared?.key||eventChannels(event)[0]||null;
+  }
   function buildIndustryInsights(events){
     const monthCorpus=corpus.filter(item=>monthOf(item)===activeReportMonth);
     const evidence=[...events.map(e=>({text:eventText(e),brand:e.brand})),...monthCorpus.map(item=>({text:[item.title,item.summary,...item.topics].join(' '),brand:item.source}))];
@@ -214,16 +223,24 @@
     return sentence.length>76?sentence.slice(0,76).replace(/[，、；：]?$/,'')+'…':sentence;
   }
   function renderChannelMatrix(events,brands){
+    const seen=new Set();
+    const uniqueEvents=events.filter(event=>{
+      const key=[event.brand,event.date,event.caseKey||event.event].map(value=>String(value||'').trim().toLowerCase()).join('|');
+      if(seen.has(key))return false;seen.add(key);return true;
+    });
+    const linkedChannels=event=>channelGroups.filter(group=>group.key!==primaryChannel(event)&&eventChannels(event).includes(group.key));
+    const eventCard=event=>'<button class="matrix-event" data-matrix-brand="'+safe(event.brand)+'" data-matrix-event="'+safe(event.event)+'" aria-label="查看 '+safe(event.brand+' '+event.event)+'"><span>'+safe(event.type||event.theme||'品牌动作')+'</span><strong>'+safe(event.event||event.theme||'未命名活动')+'</strong><p>'+safe(activityOverview(event))+'</p>'+(linkedChannels(event).length?'<small class="channel-linked">联动：'+linkedChannels(event).map(group=>safe(group.label)).join(' · ')+'</small>':'')+'<em>查看案例 →</em></button>';
     const rows=brands.map(brand=>{
-      const brandEvents=events.filter(event=>event.brand===brand);
+      const brandEvents=uniqueEvents.filter(event=>event.brand===brand);
       const cells=channelGroups.map(group=>{
-        const matched=brandEvents.filter(event=>eventChannels(event).includes(group.key));
+        const matched=brandEvents.filter(event=>primaryChannel(event)===group.key);
         if(!matched.length)return '<div class="channel-cell is-empty" aria-label="'+safe(brand+' '+group.label+' 暂无已发布动作')+'"><span>—</span><small>暂无已发布动作</small></div>';
-        return '<div class="channel-cell has-action"><div class="channel-cell-meta"><span>'+matched.length+' 项动作</span></div>'+matched.map(event=>'<button class="matrix-event" data-matrix-brand="'+safe(brand)+'" data-matrix-event="'+safe(event.event)+'" aria-label="查看 '+safe(brand+' '+event.event)+'"><span>'+safe(event.type||event.theme||'品牌动作')+'</span><strong>'+safe(event.event||event.theme||'未命名活动')+'</strong><p>'+safe(activityOverview(event))+'</p><em>查看案例 →</em></button>').join('')+'</div>';
+        return '<div class="channel-cell has-action"><div class="channel-cell-meta"><span>'+matched.length+' 项动作</span></div>'+matched.map(eventCard).join('')+'</div>';
       }).join('');
       return '<div class="channel-row"><button class="channel-brand" data-matrix-brand="'+safe(brand)+'"><span>重点竞品</span><strong>'+safe(brand)+'</strong><small>'+brandEvents.length+' 个案例</small></button>'+cells+'</div>';
     }).join('');
-    return '<section class="card panel monthly-matrix"><div class="monthly-section-head"><div><div class="section-index">02 / 竞品动作</div><h2 class="panel-title">品牌 × 渠道全景</h2><p>只保留三类关键动作：电商平台联动、线下新零售，以及社媒内容传播。</p></div><span class="monthly-count-badge">'+brands.length+' 个品牌 · '+events.length+' 个案例</span></div><div class="channel-matrix-wrap"><div class="channel-matrix"><div class="channel-header"><span>重点竞品</span>'+channelGroups.map(group=>'<strong>'+group.label+'</strong>').join('')+'</div>'+rows+'</div></div><p class="note">展会、发布会统一归入新零售；若同步直播或形成线上内容，也会同时进入社媒传播。京东、天猫的平台联动与店铺营销统一归入电商 IP。</p></section>';
+    const unclassified=uniqueEvents.filter(event=>!primaryChannel(event));
+    return '<section class="card panel monthly-matrix"><div class="monthly-section-head"><div><div class="section-index">02 / 竞品动作</div><h2 class="panel-title">品牌 × 渠道全景</h2><p>每个案例只在主要渠道展示一次；其他渠道联动标在卡片内。</p></div><span class="monthly-count-badge">'+brands.length+' 个品牌 · '+uniqueEvents.length+' 个案例</span></div><div class="channel-matrix-wrap"><div class="channel-matrix"><div class="channel-header"><span>重点竞品</span>'+channelGroups.map(group=>'<strong>'+group.label+'</strong>').join('')+'</div>'+rows+'</div></div>'+(unclassified.length?'<div class="channel-unclassified"><h3>主要渠道待确认</h3>'+unclassified.map(eventCard).join('')+'</div>':'')+'<p class="note">展会、发布会优先归入新零售，平台首发归入电商 IP，广告片归入社媒传播。跨渠道联动不再重复铺卡；动作数按主要渠道计数。</p></section>';
   }
   const placements={
     '源氏木语':{label:'展会',x:19,y:65},
