@@ -622,6 +622,11 @@
     .page-intro h2 { font-family:"STSong","Songti SC",serif; font-size:30px; }
     .page-intro p { margin-top:6px; color:var(--muted); }
     .inline-toolbar { flex:0 0 auto; }
+    .case-filter-shell { display:grid; gap:10px; min-width:min(100%,760px); }
+    .case-quick-views { display:flex; flex-wrap:wrap; gap:7px; justify-content:flex-end; }
+    .case-quick-views button { min-height:32px; padding:0 12px; border:1px solid var(--line); border-radius:999px; background:#eef5f4; color:#37565a; cursor:pointer; }
+    .case-quick-views button.active { background:#2f6668; border-color:#2f6668; color:#fff; }
+    .case-search { min-width:190px; padding:0 12px; }
     .button, .select { border-radius: 10px; background: transparent; border-color: transparent; min-height: 38px; color: #4b554f; }
     .button:hover, .select:hover { background: #ebe5da; }
     .button.primary { background: #2f3d35; border-color: #2f3d35; box-shadow: 0 8px 18px rgba(47,61,53,.16); }
@@ -738,6 +743,8 @@
       .case-hero { grid-template-columns:1fr; }
       .case-visual { min-height:230px; max-height:320px; }
       .page-intro { align-items:flex-start; flex-direction:column; }
+      .case-filter-shell { min-width:100%; }
+      .case-quick-views { justify-content:flex-start; }
       .overview-panel .trend-row { grid-template-columns: 120px 65px 65px 70px minmax(130px,1fr); }
     }
     @media (max-width: 620px) {
@@ -868,7 +875,7 @@
     @media(max-width:1000px){.shell{margin:12px;padding:24px}.home-hero-grid,.trend-stage{grid-template-columns:1fr}.keyword-insight{min-height:260px}.guided-result{grid-template-columns:1fr}.guided-brands{grid-template-columns:repeat(2,minmax(0,1fr))}.brief-cover{grid-template-columns:1fr 1fr}.creative-routes{grid-template-columns:1fr}.strategy-bridge{grid-template-columns:1fr}.bridge-arrow{transform:rotate(90deg)}.research-points{grid-template-columns:1fr}}
     @media(max-width:620px){.shell{padding:16px;margin:8px;border-radius:22px}.panel,.journey-stage{padding:18px}.choice-grid,.research-grid,.brief-core,.proof-gallery,.guided-brands{grid-template-columns:1fr}.choice-card{min-height:170px}.brief-cover{grid-template-columns:1fr}.brief-cover-copy{padding:24px}.brief-cover img{height:220px}.keyword-cloud{min-height:300px;padding:20px 8px;gap:10px}.keyword{max-width:100%;overflow-wrap:anywhere}.research-dialog-body,.research-dialog-head{padding:20px}.nav button{padding:10px 14px}.deep-research-head{flex-direction:column}.reveal-card{padding:24px}.reveal-card h3,.brief-cover-copy h3{font-size:25px}}
   </style>
-  <link rel="stylesheet" href="dashboard-system.css?v=20260922-3">
+  <link rel="stylesheet" href="dashboard-system.css?v=20261006-1">
 </head>
 <body>
   <main class="shell">
@@ -952,12 +959,30 @@
 
     <section class="page active" id="page-intelligence">
       <div class="page-intro">
-        <div><div class="section-index">CASES / RESEARCH</div><h2>案例精选</h2><p>从具体案例进入，追溯产品与传播证据，再验证消费者反馈，形成对比结论与策略机会。</p></div>
+        <div><div class="section-index">CATEGORY MARKETING LIBRARY</div><h2>品类营销案例库</h2><p>不只看月度竞品，也能按品类、营销任务与参考范围检索可复用的营销案例。</p></div>
         <div class="hierarchy-actions"><button type="button" id="openCompareConclusion">查看跨品牌结论 →</button></div>
-        <div class="toolbar inline-toolbar" aria-label="竞品事件筛选">
-          <select class="select" id="rangeFilter" aria-label="时间范围"><option value="30">近30天</option></select>
-          <select class="select" id="brandFilter" aria-label="品牌筛选"><option value="all">全部品牌</option></select>
-          <select class="select" id="typeFilter" aria-label="动作类型筛选"><option value="all">全部动作</option></select>
+        <div class="case-filter-shell">
+          <div class="case-quick-views" aria-label="快捷视图">
+            <button type="button" class="active" data-case-view="all">全部案例</button>
+            <button type="button" data-case-view="sleep">睡眠类目</button>
+            <button type="button" data-case-view="monthly">月度竞品</button>
+            <button type="button" data-case-view="cross">跨界灵感</button>
+          </div>
+          <div class="toolbar inline-toolbar" aria-label="品类营销案例筛选">
+            <input class="select case-search" id="caseSearch" type="search" aria-label="搜索案例" placeholder="搜索睡眠、助眠、节点营销…">
+            <select class="select" id="categoryFilter" aria-label="品类筛选">
+              <option value="all">全部品类</option><option value="sleep">睡眠</option><option value="home">家居</option><option value="health_wellness">健康疗愈</option><option value="lifestyle">生活方式</option><option value="other">其他</option>
+            </select>
+            <select class="select" id="scopeFilter" aria-label="参考范围">
+              <option value="all">全部参考</option><option value="category_reference">品类参考</option><option value="direct_competitor">直接竞品</option><option value="cross_category_inspiration">跨界灵感</option>
+            </select>
+            <select class="select" id="objectiveFilter" aria-label="营销任务">
+              <option value="all">全部营销任务</option><option value="product_launch">新品上市</option><option value="brand_building">品牌心智</option><option value="seasonal_campaign">节点营销</option><option value="consumer_education">用户教育</option><option value="conversion">渠道转化</option><option value="community">社群经营</option>
+            </select>
+            <select class="select" id="rangeFilter" aria-label="时间范围"><option value="all">全部时间</option><option value="30">近30天</option><option value="90">近90天</option><option value="365">近一年</option><option value="month">本月</option></select>
+            <select class="select" id="brandFilter" aria-label="品牌筛选"><option value="all">全部品牌</option></select>
+            <select class="select" id="typeFilter" aria-label="动作类型筛选"><option value="all">全部动作</option></select>
+          </div>
         </div>
       </div>
       <div class="intelligence-stats" id="intelligenceStats"></div>
@@ -1404,6 +1429,7 @@
     let compareStep = 0;
     let storyStep = 0;
     let mapBrand = state.meta.competitors?.[0] || "";
+    let activeCaseView = "all";
 
     const $ = (id) => document.getElementById(id);
     const fmt = new Intl.NumberFormat("zh-CN");
@@ -1423,13 +1449,71 @@
       return Math.round(((Number(keyword.current || 0) - previous) / previous) * 100);
     }
 
+    const caseLabels = {
+      category: { sleep: "睡眠", home: "家居", health_wellness: "健康疗愈", lifestyle: "生活方式", other: "其他" },
+      referenceScope: { category_reference: "品类参考", direct_competitor: "直接竞品", cross_category_inspiration: "跨界灵感" },
+      marketingObjective: { product_launch: "新品上市", brand_building: "品牌心智", seasonal_campaign: "节点营销", consumer_education: "用户教育", conversion: "渠道转化", community: "社群经营", other: "其他任务" }
+    };
+
+    function eventText(event) {
+      return [event.brand, event.event, event.theme, event.productStrategy, event.purpose, event.coreStrategy, event.result, event.judgment, ...(event.actions || []), ...(event.channels || [])].join(" ").toLowerCase();
+    }
+
+    function classifyEvent(event) {
+      const text = eventText(event);
+      const category = event.category || (
+        /睡眠|助眠|深睡|好好睡|失眠|床垫|枕头|床品|被子|寝具|睡眠科技|睡眠日/.test(text) ? "sleep" :
+        /家居|家具|沙发|实木|全屋|整家|定制|家纺/.test(text) ? "home" :
+        /健康|疗愈|情绪|香氛|冥想|白噪音|运动|养生/.test(text) ? "health_wellness" :
+        /生活方式|旅行|酒店|咖啡|美妆|时尚|文化/.test(text) ? "lifestyle" : "other"
+      );
+      const competitors = state.meta.competitors || [];
+      const referenceScope = event.referenceScope || event.reference_scope || (
+        competitors.includes(event.brand) ? "direct_competitor" :
+        ["sleep", "home", "health_wellness"].includes(category) ? "category_reference" : "cross_category_inspiration"
+      );
+      const marketingObjective = event.marketingObjective || event.marketing_objective || (
+        /新品|首发|发布会|产品矩阵|上市/.test(text) ? "product_launch" :
+        /睡眠日|节日|节点|大促|双11|618|品牌日|周年/.test(text) ? "seasonal_campaign" :
+        /科普|教育|白皮书|报告|实验|指南|标准/.test(text) ? "consumer_education" :
+        /电商|促销|转化|门店|渠道|直播|成交/.test(text) ? "conversion" :
+        /社群|会员|用户共创|私域/.test(text) ? "community" : "brand_building"
+      );
+      return { category, referenceScope, marketingObjective };
+    }
+
+    function eventDate(event) {
+      const value = new Date(event.date || event.happened_at || "");
+      return Number.isNaN(value.getTime()) ? null : value;
+    }
+
+    function timeMatches(event, range) {
+      if (range === "all") return true;
+      const date = eventDate(event);
+      if (!date) return false;
+      const now = new Date();
+      if (range === "month") return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+      const days = Number(range);
+      return Number.isFinite(days) && date >= new Date(now.getTime() - days * 86400000);
+    }
+
     function getFilteredEvents() {
       const brand = $("brandFilter").value;
       const type = $("typeFilter").value;
+      const category = $("categoryFilter").value;
+      const scope = $("scopeFilter").value;
+      const objective = $("objectiveFilter").value;
+      const range = $("rangeFilter").value;
+      const search = $("caseSearch").value.trim().toLowerCase();
       return state.events.filter((event) => {
+        const classification = classifyEvent(event);
         const brandOk = brand === "all" || event.brand === brand;
         const typeOk = type === "all" || event.type === type;
-        return brandOk && typeOk;
+        const categoryOk = category === "all" || classification.category === category;
+        const scopeOk = scope === "all" || classification.referenceScope === scope;
+        const objectiveOk = objective === "all" || classification.marketingObjective === objective;
+        const searchOk = !search || eventText(event).includes(search);
+        return brandOk && typeOk && categoryOk && scopeOk && objectiveOk && searchOk && timeMatches(event, range);
       });
     }
 
@@ -1544,7 +1628,8 @@
     }
 
     function eventCard(event, index, isButton) {
-      const tagMarkup = [event.brand, event.type, ...(event.actions || []).slice(0, 2)]
+      const classification = classifyEvent(event);
+      const tagMarkup = [event.brand, event.type, caseLabels.category[classification.category], caseLabels.referenceScope[classification.referenceScope], caseLabels.marketingObjective[classification.marketingObjective], ...(event.actions || []).slice(0, 1)]
         .filter(Boolean)
         .map((tag, tagIndex) => `<span class="tag ${tagIndex === 1 ? "teal" : tagIndex > 1 ? "orange" : ""}">${safe(tag)}</span>`)
         .join("");
@@ -1591,6 +1676,9 @@
       if (!event) return "<p class=\"note\">暂无事件数据。</p>";
       const fields = [
         ["品牌", event.brand],
+        ["品类", caseLabels.category[classifyEvent(event).category]],
+        ["参考范围", caseLabels.referenceScope[classifyEvent(event).referenceScope]],
+        ["营销任务", caseLabels.marketingObjective[classifyEvent(event).marketingObjective]],
         ["事件", event.event],
         ["主题", event.theme],
         ["产品/战略", event.productStrategy],
@@ -1819,11 +1907,35 @@
     };
     document.querySelectorAll('[data-strategy-creative]').forEach(button=>button.addEventListener('click',()=>openResearchModal("策略卡","创意方向与物料形式",strategyCreativeDetails[button.dataset.strategyCreative],["中国质量新闻网 2026-08-11","乐居财经 2026-08-10"],"策略建议/尚未执行")));
 
-    ["brandFilter", "typeFilter", "rangeFilter"].forEach((id) => {
+    function applyCaseView(view) {
+      activeCaseView = view;
+      $("caseSearch").value = "";
+      $("brandFilter").value = "all";
+      $("typeFilter").value = "all";
+      $("categoryFilter").value = view === "sleep" ? "sleep" : "all";
+      $("scopeFilter").value = view === "monthly" ? "direct_competitor" : view === "cross" ? "cross_category_inspiration" : "all";
+      $("objectiveFilter").value = "all";
+      $("rangeFilter").value = view === "monthly" ? "30" : "all";
+      document.querySelectorAll("[data-case-view]").forEach(button => button.classList.toggle("active", button.dataset.caseView === view));
+      selectedEventIndex = 0;
+      render();
+    }
+
+    document.querySelectorAll("[data-case-view]").forEach(button => button.addEventListener("click", () => applyCaseView(button.dataset.caseView)));
+
+    ["brandFilter", "typeFilter", "rangeFilter", "categoryFilter", "scopeFilter", "objectiveFilter"].forEach((id) => {
       $(id).addEventListener("change", () => {
+        activeCaseView = "custom";
+        document.querySelectorAll("[data-case-view]").forEach(button => button.classList.remove("active"));
         selectedEventIndex = 0;
         render();
       });
+    });
+    $("caseSearch").addEventListener("input", () => {
+      activeCaseView = "custom";
+      document.querySelectorAll("[data-case-view]").forEach(button => button.classList.remove("active"));
+      selectedEventIndex = 0;
+      renderEvents();
     });
 
     $("applyData").addEventListener("click", () => {
@@ -1860,7 +1972,7 @@
   </script>
   <script src="dashboard-note-media.js"></script>
   <script src="dashboard-competitors.js?v=20260922-3"></script>
-  <script src="dashboard-mvp.js?v=20260922-4"></script>
+  <script src="dashboard-mvp.js?v=20261006-3"></script>
   <script src="dashboard-summary.js"></script>
   <script src="runtime-config.js"></script>
   <script src="dashboard-api.js"></script>

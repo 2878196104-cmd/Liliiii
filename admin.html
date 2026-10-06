@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Monthly Know · 管理者采集后台</title>
-  <link rel="stylesheet" href="admin.css?v=20261006-1">
+  <link rel="stylesheet" href="admin.css?v=20261006-2">
 </head>
 <body>
   <main class="admin-shell">
@@ -78,7 +78,7 @@
       </section>
 
       <section id="documentView">
-        <div class="toolbar">
+        <div class="toolbar scope-toolbar">
           <div class="search-box">
             <label for="documentSearch">检索当前资料</label>
             <input id="documentSearch" type="search" placeholder="搜索标题、正文或来源">
@@ -93,6 +93,18 @@
           </label>
           <label>信息源
             <select id="sourceFilter"><option value="all">全部来源</option></select>
+          </label>
+          <label>品类
+            <select id="categoryFilter"><option value="all">全部品类</option><option value="sleep">睡眠</option><option value="home">家居</option><option value="health_wellness">健康疗愈</option><option value="lifestyle">生活方式</option><option value="other">其他</option></select>
+          </label>
+          <label>参考范围
+            <select id="scopeFilter"><option value="all">全部参考</option><option value="category_reference">品类参考</option><option value="direct_competitor">直接竞品</option><option value="cross_category_inspiration">跨界灵感</option></select>
+          </label>
+          <label>营销任务
+            <select id="objectiveFilter"><option value="all">全部任务</option><option value="product_launch">新品上市</option><option value="brand_building">品牌心智</option><option value="seasonal_campaign">节点营销</option><option value="consumer_education">用户教育</option><option value="conversion">渠道转化</option><option value="community">社群经营</option></select>
+          </label>
+          <label>时间
+            <select id="timeFilter"><option value="all">全部时间</option><option value="30">近30天</option><option value="90">近90天</option><option value="365">近一年</option></select>
           </label>
           <button id="refreshDocuments" class="button secondary">刷新</button>
         </div>
@@ -133,6 +145,6 @@
   </dialog>
 
   <script src="runtime-config.js"></script>
-  <script src="admin.js?v=20261006-3"></script>
+  <script src="admin.js?v=20261006-4"></script>
 </body>
 </html>

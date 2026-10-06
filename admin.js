@@ -143,6 +143,35 @@
     return ({ pass: "建议保留", review: "人工复核", filter: "建议过滤" })[status] || "待判断";
   }
 
+  const classificationLabels = {
+    category: { sleep: "睡眠", home: "家居", health_wellness: "健康疗愈", lifestyle: "生活方式", other: "其他" },
+    reference_scope: { category_reference: "品类参考", direct_competitor: "直接竞品", cross_category_inspiration: "跨界灵感" },
+    marketing_objective: { product_launch: "新品上市", brand_building: "品牌心智", seasonal_campaign: "节点营销", consumer_education: "用户教育", conversion: "渠道转化", community: "社群经营", other: "其他任务" }
+  };
+
+  function classifyDocument(row) {
+    const jev = row.raw_payload?.jev || {};
+    const text = `${row.title || ""} ${row.body_text || ""}`.toLowerCase();
+    const category = jev.category || (
+      /睡眠|助眠|深睡|失眠|床垫|枕头|床品|寝具|睡眠科技|睡眠日/.test(text) ? "sleep" :
+      /家居|家具|沙发|实木|全屋|整家|定制|家纺/.test(text) ? "home" :
+      /健康|疗愈|情绪|香氛|冥想|白噪音|运动|养生/.test(text) ? "health_wellness" :
+      /生活方式|旅行|酒店|咖啡|美妆|时尚|文化/.test(text) ? "lifestyle" : "other"
+    );
+    const reference_scope = jev.reference_scope || (
+      /顾家|源氏木语|林氏家居|慕思|亚朵星球/.test(text) ? "direct_competitor" :
+      ["sleep", "home", "health_wellness"].includes(category) ? "category_reference" : "cross_category_inspiration"
+    );
+    const marketing_objective = jev.marketing_objective || (
+      /新品|首发|上市|发布会|产品矩阵/.test(text) ? "product_launch" :
+      /睡眠日|节点|节日|大促|双11|618|品牌日|周年/.test(text) ? "seasonal_campaign" :
+      /科普|教育|白皮书|报告|实验|指南|标准/.test(text) ? "consumer_education" :
+      /电商|促销|转化|门店|渠道|直播|成交/.test(text) ? "conversion" :
+      /社群|会员|用户共创|私域/.test(text) ? "community" : "brand_building"
+    );
+    return { category, reference_scope, marketing_objective };
+  }
+
   function renderJevResult(result) {
     if (!result) return '<span class="jev-pending">尚未运行 Jev 判断</span>';
     return `<div class="jev-result">
@@ -207,11 +236,22 @@
 
   function filteredDocuments() {
     const term = $("documentSearch").value.trim().toLowerCase();
-    if (!term) return documents;
-    return documents.filter(row =>
-      [row.title, row.body_text, row.sources?.name, row.sources?.platform]
-        .some(value => String(value || "").toLowerCase().includes(term))
-    );
+    const category = $("categoryFilter").value;
+    const scope = $("scopeFilter").value;
+    const objective = $("objectiveFilter").value;
+    const days = $("timeFilter").value;
+    const cutoff = days === "all" ? null : new Date(Date.now() - Number(days) * 86400000);
+    return documents.filter(row => {
+      const classification = classifyDocument(row);
+      const searchOk = !term || [row.title, row.body_text, row.sources?.name, row.sources?.platform]
+        .some(value => String(value || "").toLowerCase().includes(term));
+      const categoryOk = category === "all" || classification.category === category;
+      const scopeOk = scope === "all" || classification.reference_scope === scope;
+      const objectiveOk = objective === "all" || classification.marketing_objective === objective;
+      const date = new Date(row.published_at || row.collected_at || "");
+      const timeOk = !cutoff || (!Number.isNaN(date.getTime()) && date >= cutoff);
+      return searchOk && categoryOk && scopeOk && objectiveOk && timeOk;
+    });
   }
 
   function normalizedCaseTitle(value) {
@@ -272,6 +312,8 @@
       const row = cluster.primary;
       const url = safeUrl(row.canonical_url);
       const alternatives = duplicateSources(row, cluster.duplicates);
+      const classification = classifyDocument(row);
+      const classificationTags = [classificationLabels.category[classification.category], classificationLabels.reference_scope[classification.reference_scope], classificationLabels.marketing_objective[classification.marketing_objective]].filter(Boolean);
       return `<article class="document-card" data-id="${escapeHtml(row.id)}">
         <div class="document-top">
           <div class="document-meta">
@@ -287,6 +329,7 @@
         </div>
         <h3>${escapeHtml(row.title)}</h3>
         <p>${escapeHtml(excerpt(row.body_text) || "暂无正文摘要，可打开原文核验。")}</p>
+        <div class="case-classification">${classificationTags.map(item => `<span>${escapeHtml(item)}</span>`).join("")}</div>
         ${alternatives.length ? `<div class="duplicate-sources"><strong>补充来源</strong>${alternatives.slice(0, 6).map(item => `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.source || item.platform || "其他媒体")} ↗</a>`).join("")}</div>` : ""}
         ${renderJevResult(row.raw_payload?.jev)}
         <div class="document-actions">
@@ -549,6 +592,7 @@
     if (button) activateView(button.dataset.view).catch(showError);
   });
   $("documentSearch").addEventListener("input", renderDocuments);
+  ["categoryFilter", "scopeFilter", "objectiveFilter", "timeFilter"].forEach(id => $(id).addEventListener("change", renderDocuments));
   $("documentStatus").addEventListener("change", () => loadDocuments().catch(showError));
   $("sourceFilter").addEventListener("change", () => loadDocuments().catch(showError));
   $("refreshDocuments").addEventListener("click", () => Promise.all([loadSourceData(), loadStats(), loadDocuments()]).catch(showError));
