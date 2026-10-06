@@ -234,7 +234,11 @@
       const brandEvents=uniqueEvents.filter(event=>event.brand===brand);
       const cells=channelGroups.map(group=>{
         const matched=brandEvents.filter(event=>primaryChannel(event)===group.key);
-        if(!matched.length)return '<div class="channel-cell is-empty" aria-label="'+safe(brand+' '+group.label+' 暂无已发布动作')+'"><span>—</span><small>暂无已发布动作</small></div>';
+        if(!matched.length){
+          const hasLinkedAction=brandEvents.some(event=>eventChannels(event).includes(group.key));
+          const emptyLabel=hasLinkedAction?'仅参与联动，见主渠道卡片':'暂无主要动作';
+          return '<div class="channel-cell is-empty" aria-label="'+safe(brand+' '+group.label+' '+emptyLabel)+'"><span>—</span><small>'+emptyLabel+'</small></div>';
+        }
         return '<div class="channel-cell has-action"><div class="channel-cell-meta"><span>'+matched.length+' 项动作</span></div>'+matched.map(eventCard).join('')+'</div>';
       }).join('');
       return '<div class="channel-row"><button class="channel-brand" data-matrix-brand="'+safe(brand)+'"><span>重点竞品</span><strong>'+safe(brand)+'</strong><small>'+brandEvents.length+' 个案例</small></button>'+cells+'</div>';
