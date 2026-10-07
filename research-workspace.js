@@ -4,14 +4,14 @@
   const safeUrl = value => { try { const u = new URL(value); return /^https?:$/.test(u.protocol) ? u.href : ''; } catch { return ''; } };
   const taskLabels = {all:'全部任务',launch:'新品发布',seasonal:'节点 / 品牌节',brand:'品牌表达',experience:'线下体验',education:'用户教育',conversion:'渠道转化'};
   const filters = {theme:'睡眠', product:'all', scope:'category', task:'all', years:'2'};
-  let seeds = [], loadError = '', host, liveEvents = [], selected = [], notes = '', saved = true;
+  let seeds = [], loadError = '', host, liveEvents = [], selected = [], notes = '', strategy = {}, saved = true;
   const storageKey = () => 'monthly-note:research:v1:' + filters.theme.trim().toLowerCase();
   function restore() {
-    try { const data = JSON.parse(localStorage.getItem(storageKey()) || '{}'); selected = Array.isArray(data.selected) ? data.selected : []; notes = String(data.notes || ''); }
-    catch { selected = []; notes = ''; }
+    try { const data = JSON.parse(localStorage.getItem(storageKey()) || '{}'); selected = Array.isArray(data.selected) ? data.selected : []; notes = String(data.notes || ''); strategy = window.MONTHLY_RESEARCH_STRATEGY.normalize(data.strategy); }
+    catch { selected = []; notes = ''; strategy = {}; }
   }
   function save() {
-    try { localStorage.setItem(storageKey(), JSON.stringify({selected, notes, updatedAt:new Date().toISOString()})); saved = true; }
+    try { localStorage.setItem(storageKey(), JSON.stringify({selected, notes, strategy, updatedAt:new Date().toISOString()})); saved = true; }
     catch { saved = false; }
   }
   restore();
@@ -54,6 +54,7 @@
     ].map(([task,label])=>({label,rows:selected.filter(s=>(s.tasks||[]).includes(task))})).filter(g=>g.rows.length);
     return `<section class="research-synthesis" id="researchSynthesis"><div class="research-section-title"><div><small>03 / 方案线索</small><h2>让选中的材料发生联系</h2></div><span>${selected.length} 条已选</span></div>
       <p>这里是你的工作草稿，不是已经验证的策略结论。筛选变化不会清空已选材料。</p>
+      ${window.MONTHLY_RESEARCH_STRATEGY.render(strategy)}
       <div class="research-selected">${selected.map(s=>`<div><span>${escape(s.brand)} · ${escape(s.title)}</span><button data-remove-research="${escape(s.id)}" aria-label="移除 ${escape(s.title)}">移除</button></div>`).join('')||'<p>从参考资料或灵感墙加入材料，就会按营销任务聚合在这里。</p>'}</div>
       <div class="research-connections">${groups.map(g=>`<article><h3>${escape(g.label)}</h3>${g.rows.map(s=>`<p>${escape(s.idea||s.title)}</p>`).join('')}</article>`).join('')}</div>
       <label for="researchNotes">自己的想法 / 待验证问题</label><textarea id="researchNotes" placeholder="例如：用睡前仪式做统一主题；床垫负责试睡体验，枕头和床品负责低门槛参与。还需要核验哪些执行条件？">${escape(notes)}</textarea>
@@ -86,9 +87,11 @@
       save(); render(host,liveEvents);
     });
     host.querySelectorAll('[data-remove-research]').forEach(button=>button.onclick=()=>{selected=selected.filter(s=>s.id!==button.dataset.removeResearch);save();render(host,liveEvents);});
-    host.querySelector('textarea').oninput = event => {notes=event.target.value;save();host.querySelector('#researchSaveState').textContent=saved?'草稿已保存在当前浏览器':'保存失败，请导出草稿';};
+    const saveState = () => {save();host.querySelector('#researchSaveState').textContent=saved?'草稿已保存在当前浏览器':'保存失败，请导出草稿';};
+    host.querySelector('#researchNotes').oninput = event => {notes=event.target.value;saveState();};
+    host.querySelectorAll('[data-strategy-field]').forEach(input=>input.oninput=event=>{strategy[event.target.dataset.strategyField]=event.target.value;saveState();});
     host.querySelector('[data-export-research]').onclick = () => {
-      const content = `# ${filters.theme||'专题'}研究草稿\n\n研究范围：${filters.product}；任务：${taskLabels[filters.task]}；近${filters.years}年\n\n` + (window.MONTHLY_RESEARCH_INSIGHTS?.markdown(visible,filters)||'') + selected.map(s=>`## ${s.title}\n${s.brand} · ${s.date} · ${s.date_basis||''}\n\n来源事实：${s.summary}\n\n借鉴（待验证）：${s.idea||''}\n\n边界：${s.limits||''}\n\n原文：${safeUrl(s.url)}\n`).join('\n')+`\n## 自己的想法\n${notes}\n`;
+      const content = `# ${filters.theme||'专题'}研究草稿\n\n研究范围：${filters.product}；任务：${taskLabels[filters.task]}；近${filters.years}年\n\n` + window.MONTHLY_RESEARCH_STRATEGY.markdown(strategy) + (window.MONTHLY_RESEARCH_INSIGHTS?.markdown(visible,filters)||'') + selected.map(s=>`## ${s.title}\n${s.brand} · ${s.date} · ${s.date_basis||''}\n\n来源事实：${s.summary}\n\n借鉴（待验证）：${s.idea||''}\n\n边界：${s.limits||''}\n\n原文：${safeUrl(s.url)}\n`).join('\n')+`\n## 自己的想法\n${notes}\n`;
       const url = URL.createObjectURL(new Blob([content],{type:'text/markdown;charset=utf-8'}));
       const a = document.createElement('a');a.href=url;a.download='专题研究草稿.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     };
